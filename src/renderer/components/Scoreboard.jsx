@@ -1,28 +1,53 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
 
 function Scoreboard({ apiUrl, title }) {
   const [entries, setEntries] = useState([]);
+  const [divisions, setDivisions] = useState([]);
   const [editing, setEditing] = useState(null);
   const [scoreInput, setScoreInput] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    fetchScoreboard();
-    const interval = setInterval(fetchScoreboard, 5000);
+    fetchData();
+    const interval = setInterval(fetchData, 5000);
     return () => clearInterval(interval);
   }, []);
 
-  const fetchScoreboard = async () => {
+  const fetchData = async () => {
     try {
-      const response = await fetch(`${apiUrl}/scoreboard`);
-      const data = await response.json();
-      setEntries(data);
+      const [sbRes, settingsRes] = await Promise.all([
+        fetch(`${apiUrl}/scoreboard`),
+        fetch(`${apiUrl}/settings`)
+      ]);
+      const sb = await sbRes.json();
+      const settings = await settingsRes.json();
+      setEntries(sb);
+      setDivisions(parseDivisions(settings.divisions));
     } catch (error) {
-      console.error('Failed to fetch scoreboard:', error);
+      console.error('Failed to fetch scoreboard data:', error);
     }
   };
+
+  const groups = [];
+  const divConfig = {};
+  divisions.forEach((d) => { divConfig[d.name] = d; });
+  entries.forEach((e) => {
+    let key = e.division || 'Open';
+    let group = groups.find((g) => g.name === key);
+    if (!group) {
+      group = { name: key, rows: [] };
+      groups.push(group);
+    }
+    group.rows.push(e);
+  });
+  groups.sort((a, b) => {
+    if (a.name === 'Open') return 1;
+    if (b.name === 'Open') return -1;
+    const sa = (divConfig[a.name] && divConfig[a.name].sort_order) || 0;
+    const sb = (divConfig[b.name] && divConfig[b.name].sort_order) || 0;
+    return sa - sb;
+  });
 
   const openEditor = (entry) => {
     setEditing(entry);
@@ -53,7 +78,7 @@ function Scoreboard({ apiUrl, title }) {
       }
 
       setEditing(null);
-      fetchScoreboard();
+      fetchData();
     } catch (err) {
       setError(err.message);
     } finally {
@@ -74,7 +99,7 @@ function Scoreboard({ apiUrl, title }) {
     <div>
       <div className="page-header">
         <h1>Scoreboard</h1>
-        <p>{title} — click "Set Score" to update a player's score</p>
+        <p>{title} — rankings broken out by division. Click "Set Score" to update a player's score.</p>
       </div>
 
       {entries.length === 0 ? (
@@ -85,67 +110,74 @@ function Scoreboard({ apiUrl, title }) {
           </div>
         </div>
       ) : (
-        <div className="card">
-          <div className="card-header">
-            <h2 className="card-title">Standings</h2>
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <Link to="/divisions" className="btn btn-secondary">
-                View by Division
-              </Link>
-              <button className="btn btn-secondary" onClick={fetchScoreboard}>
-                Refresh
-              </button>
+        groups.map((group) => {
+          const max = (divConfig[group.name] && divConfig[group.name].max) || 0;
+          const limited = group.rows.slice(0, max || group.rows.length);
+          let rank = 0;
+          let lastScore = null;
+          return (
+            <div className="card" key={group.name}>
+              <div className="card-header">
+                <h2 className="card-title">{group.name}</h2>
+                {max > 0 && <span className="badge badge-secondary">Top {Math.min(max, limited.length)}</span>}
+                <button className="btn btn-secondary" onClick={fetchData}>
+                  Refresh
+                </button>
+              </div>
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Rank</th>
+                    <th>Player</th>
+                    <th>Score</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {limited.map((entry) => {
+                    if (entry.total_score !== lastScore) { rank++; lastScore = entry.total_score; }
+                    return (
+                      <tr key={entry.player_id} className={rank <= 3 ? 'rank-top' : ''}>
+                        <td className="rank-cell">
+                          <span className="rank-number">{rank}</span>
+                          {medalFor(rank)}
+                        </td>
+                        <td>
+                          {entry.twitch_name ? (
+                            <a
+                              href={`https://twitch.tv/${entry.twitch_name}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              style={{ color: 'var(--accent)', textDecoration: 'underline' }}
+                            >
+                              {entry.player_name} <span style={{ opacity: 0.7, fontSize: '0.9em' }}>@</span>
+                            </a>
+                          ) : (
+                            entry.player_name
+                          )}
+                        </td>
+                        <td className="score-total">{entry.total_score || 0}</td>
+                        <td>
+                          {Number(entry.currently_playing) > 0 ? (
+                            <span className="badge badge-success">● Playing</span>
+                          ) : (
+                            <span className="badge badge-warning">Idle</span>
+                          )}
+                        </td>
+                        <td>
+                          <button className="btn btn-secondary btn-sm" onClick={() => openEditor(entry)}>
+                            Set Score
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
-          </div>
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Rank</th>
-                <th>Player</th>
-                <th>Score</th>
-                <th>Status</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {entries.map((entry) => (
-                <tr key={entry.player_id} className={entry.rank <= 3 ? 'rank-top' : ''}>
-                  <td className="rank-cell">
-                    <span className="rank-number">{entry.rank}</span>
-                    {medalFor(entry.rank)}
-                  </td>
-                  <td>
-                    {entry.twitch_name ? (
-                      <a
-                        href={`https://twitch.tv/${entry.twitch_name}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        style={{ color: 'var(--accent)', textDecoration: 'underline' }}
-                      >
-                        {entry.player_name} <span style={{ opacity: 0.7, fontSize: '0.9em' }}>@</span>
-                      </a>
-                    ) : (
-                      entry.player_name
-                    )}
-                  </td>
-                  <td className="score-total">{entry.total_score || 0}</td>
-                  <td>
-                    {Number(entry.currently_playing) > 0 ? (
-                      <span className="badge badge-success">● Playing</span>
-                    ) : (
-                      <span className="badge badge-warning">Idle</span>
-                    )}
-                  </td>
-                  <td>
-                    <button className="btn btn-secondary btn-sm" onClick={() => openEditor(entry)}>
-                      Set Score
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+          );
+        })
       )}
 
       {editing && (
@@ -185,6 +217,20 @@ function Scoreboard({ apiUrl, title }) {
       )}
     </div>
   );
+}
+
+function parseDivisions(value) {
+  if (!value) return [];
+  try {
+    const parsed = JSON.parse(value);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .map((d) => (typeof d === 'string' ? { name: d, active: true, sort_order: 0, max: 0 } : d))
+      .filter((d) => d.active !== false)
+      .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+  } catch (e) {
+    return [];
+  }
 }
 
 export default Scoreboard;

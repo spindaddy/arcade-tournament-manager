@@ -7,7 +7,6 @@ import Machines from './components/Machines';
 import ActiveSessions from './components/ActiveSessions';
 import InstallGuide from './components/InstallGuide';
 import Scoreboard from './components/Scoreboard';
-import Divisions from './components/Divisions';
 import Settings from './components/Settings';
 
 const API_URL = 'http://localhost:3001/api';
@@ -78,9 +77,6 @@ function App() {
               <NavLink to="/scoreboard">Scoreboard</NavLink>
             </li>
             <li>
-              <NavLink to="/divisions">Divisions</NavLink>
-            </li>
-            <li>
               <NavLink to="/active">Active Sessions</NavLink>
             </li>
             <li>
@@ -115,7 +111,6 @@ function App() {
             <Route path="/tournaments" element={<Tournaments apiUrl={API_URL} />} />
             <Route path="/machines" element={<Machines apiUrl={API_URL} />} />
             <Route path="/scoreboard" element={<Scoreboard apiUrl={API_URL} title={title} />} />
-            <Route path="/divisions" element={<Divisions apiUrl={API_URL} />} />
             <Route path="/active" element={<ActiveSessions apiUrl={API_URL} />} />
             <Route path="/settings" element={<Settings apiUrl={API_URL} currentTheme={theme} onThemeChange={setTheme} />} />
             <Route path="/guide" element={<InstallGuide />} />
