@@ -19,13 +19,7 @@ function Players({ apiUrl }) {
     try {
       const response = await fetch(`${apiUrl}/settings`);
       const settings = await response.json();
-      if (settings.divisions) {
-        try {
-          setDivisions(JSON.parse(settings.divisions));
-        } catch (e) {
-          setDivisions([]);
-        }
-      }
+      setDivisions(parseDivisions(settings.divisions));
     } catch (error) {
       console.error('Failed to fetch divisions:', error);
     }
@@ -300,6 +294,21 @@ function Players({ apiUrl }) {
       )}
     </div>
   );
+}
+
+function parseDivisions(value) {
+  if (!value) return [];
+  try {
+    const parsed = JSON.parse(value);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .map((d) => (typeof d === 'string' ? { name: d, active: true, sort_order: 0 } : d))
+      .filter((d) => d.active !== false)
+      .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
+      .map((d) => d.name);
+  } catch (e) {
+    return [];
+  }
 }
 
 export default Players;

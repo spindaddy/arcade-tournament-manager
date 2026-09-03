@@ -10,20 +10,14 @@ const THEMES = [
 function Settings({ apiUrl, currentTheme, onThemeChange }) {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [divisions, setDivisions] = useState('');
+  const [divisions, setDivisions] = useState([]);
   const [savedDivisions, setSavedDivisions] = useState(false);
 
   useEffect(() => {
     fetch(`${apiUrl}/settings`)
       .then((r) => r.json())
       .then((settings) => {
-        if (settings.divisions) {
-          try {
-            setDivisions(JSON.parse(settings.divisions).join('\n'));
-          } catch (e) {
-            setDivisions(settings.divisions);
-          }
-        }
+        setDivisions(normalizeDivisions(settings.divisions));
       })
       .catch((error) => console.error('Failed to load settings:', error));
   }, []);
@@ -51,15 +45,12 @@ function Settings({ apiUrl, currentTheme, onThemeChange }) {
 
   const saveDivisions = async (e) => {
     e.preventDefault();
-    const list = divisions
-      .split('\n')
-      .map((d) => d.trim())
-      .filter(Boolean);
+    const sorted = divisions.slice().sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
     try {
       const response = await fetch(`${apiUrl}/settings`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ divisions: JSON.stringify(list) })
+        body: JSON.stringify({ divisions: JSON.stringify(sorted) })
       });
       if (response.ok) {
         setSavedDivisions(true);
@@ -68,6 +59,21 @@ function Settings({ apiUrl, currentTheme, onThemeChange }) {
     } catch (error) {
       console.error('Failed to save divisions:', error);
     }
+  };
+
+  const addDivision = () => {
+    setDivisions((prev) => {
+      const maxOrder = prev.reduce((m, d) => Math.max(m, d.sort_order || 0), 0);
+      return [...prev, { name: '', active: true, sort_order: maxOrder + 1 }];
+    });
+  };
+
+  const updateDivision = (index, field, value) => {
+    setDivisions((prev) => prev.map((d, i) => (i === index ? { ...d, [field]: value } : d)));
+  };
+
+  const removeDivision = (index) => {
+    setDivisions((prev) => prev.filter((d, i) => i !== index));
   };
 
   return (
@@ -125,30 +131,68 @@ function Settings({ apiUrl, currentTheme, onThemeChange }) {
           {savedDivisions && <span className="badge badge-success">Saved ✓</span>}
         </div>
         <p style={{ color: 'var(--text-secondary)', marginBottom: '16px' }}>
-          Enter one division per line. These become the options in the player's Division dropdown.
+          Configure divisions shown on the scoreboard. Inactive divisions are hidden on the web page;
+          grids are ordered by sort order.
         </p>
         <form onSubmit={saveDivisions}>
-          <div className="form-group">
-            <label>Divisions</label>
-            <textarea
-              rows={6}
-              value={divisions}
-              onChange={(e) => setDivisions(e.target.value)}
-              placeholder={'Arcade\nPinball\nRetro\nCombat'}
-              style={{
-                width: '100%',
-                padding: '10px 14px',
-                background: 'var(--bg-card)',
-                border: '1px solid var(--border)',
-                borderRadius: '8px',
-                color: 'var(--text-primary)',
-                fontFamily: 'inherit',
-                fontSize: '14px',
-                resize: 'vertical'
-              }}
-            />
-          </div>
-          <div className="modal-actions">
+          <table className="table">
+            <thead>
+              <tr>
+                <th style={{ width: '40px' }}></th>
+                <th>Division</th>
+                <th style={{ width: '90px' }}>Sort</th>
+                <th style={{ width: '90px' }}>Active</th>
+                <th style={{ width: '70px' }}></th>
+              </tr>
+            </thead>
+            <tbody>
+              {divisions.map((div, index) => (
+                <tr key={index}>
+                  <td>{index + 1}.</td>
+                  <td>
+                    <input
+                      type="text"
+                      value={div.name}
+                      placeholder="e.g., Arcade"
+                      onChange={(e) => updateDivision(index, 'name', e.target.value)}
+                      style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '6px', color: 'var(--text-primary)', padding: '8px 10px', width: '100%' }}
+                    />
+                  </td>
+                  <td>
+                    <input
+                      type="number"
+                      value={div.sort_order || 0}
+                      onChange={(e) => updateDivision(index, 'sort_order', parseInt(e.target.value || '0', 10))}
+                      style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '6px', color: 'var(--text-primary)', padding: '8px 10px', width: '100%' }}
+                    />
+                  </td>
+                  <td>
+                    <input
+                      type="checkbox"
+                      checked={div.active}
+                      onChange={(e) => updateDivision(index, 'active', e.target.checked)}
+                    />
+                  </td>
+                  <td>
+                    <button type="button" className="btn btn-secondary btn-sm" onClick={() => removeDivision(index)}>
+                      Remove
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              {divisions.length === 0 && (
+                <tr>
+                  <td colSpan={5} style={{ color: 'var(--text-secondary)', textAlign: 'center' }}>
+                    No divisions defined.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+          <div style={{ marginTop: '16px', display: 'flex', gap: '12px' }}>
+            <button type="button" className="btn btn-secondary" onClick={addDivision}>
+              + Add Division
+            </button>
             <button type="submit" className="btn btn-primary">
               Save Divisions
             </button>
@@ -157,6 +201,24 @@ function Settings({ apiUrl, currentTheme, onThemeChange }) {
       </div>
     </div>
   );
+}
+
+function normalizeDivisions(value) {
+  if (!value) return [];
+  try {
+    const parsed = JSON.parse(value);
+    if (Array.isArray(parsed)) {
+      return parsed.map((d) => {
+        if (typeof d === 'string') {
+          return { name: d, active: true, sort_order: 0 };
+        }
+        return { name: d.name || '', active: d.active !== false, sort_order: d.sort_order || 0 };
+      });
+    }
+  } catch (e) {
+    return [];
+  }
+  return [];
 }
 
 export default Settings;

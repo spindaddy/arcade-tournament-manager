@@ -119,20 +119,37 @@ function scoreboardPageHtml() {
       return div.innerHTML;
     }
 
-    function render(data) {
+    function render(data, divisions) {
       var board = document.getElementById('board');
       if (!data || data.length === 0) {
         board.innerHTML = '<table><tbody><tr><td class="empty">No scores yet</td></tr></tbody></table>';
       } else {
         var groups = {};
+        var divConfig = {};
+        (divisions || []).forEach(function (d) {
+          if (typeof d === 'string') d = { name: d, active: true, sort_order: 0 };
+          divConfig[d.name] = d;
+        });
         data.forEach(function (e) {
           var key = e.division || 'Open';
           if (!groups[key]) groups[key] = [];
           groups[key].push(e);
         });
-        var groupKeys = Object.keys(groups);
+        var keys = Object.keys(groups)
+          .filter(function (k) {
+            if (k === 'Open') return true;
+            var c = divConfig[k];
+            return !c || c.active !== false;
+          })
+          .sort(function (a, b) {
+            if (a === 'Open') return 1;
+            if (b === 'Open') return -1;
+            var sa = (divConfig[a] && divConfig[a].sort_order) || 0;
+            var sb = (divConfig[b] && divConfig[b].sort_order) || 0;
+            return sa - sb;
+          });
 
-        var html = groupKeys.map(function (division) {
+        var html = keys.map(function (division) {
           var rank = 0;
           var lastScore = null;
           var rows = groups[division].map(function (e) {
@@ -168,9 +185,15 @@ function scoreboardPageHtml() {
     }
 
     function load() {
-      fetch('/api/scoreboard')
-        .then(function (r) { return r.json(); })
-        .then(render)
+      Promise.all([fetch('/api/scoreboard').then(function (r) { return r.json(); }),
+                   fetch('/api/settings').then(function (r) { return r.json(); })])
+        .then(function (res) {
+          var divisions = [];
+          if (res[1] && res[1].divisions) {
+            try { divisions = JSON.parse(res[1].divisions); } catch (e) { divisions = []; }
+          }
+          render(res[0], divisions);
+        })
         .catch(function () {
           document.getElementById('board').innerHTML = '<div class="empty">Unable to reach scoreboard</div>';
         });
