@@ -4,13 +4,16 @@
   "description": "Electron app for managing arcade tournaments with RFID badge tracking",
   "main": "src/main/main.js",
   "scripts": {
-    "start": "concurrently \"npm run dev:api\" \"wait-on http://localhost:3001 && electron .\"",
-    "dev": "concurrently \"npm run dev:api\" \"wait-on http://localhost:3001 && electron .\"",
+    "start": "node src/api/server.js & sleep 1 && electron .",
+    "dev": "concurrently \"npm run dev:api\" \"sleep 2 && electron .\"",
     "dev:api": "node src/api/server.js",
-    "build": "electron-builder",
-    "build:win": "electron-builder --win",
-    "build:mac": "electron-builder --mac",
-    "build:linux": "electron-builder --linux"
+    "prebuild": "npx vite build --config vite.config.js",
+    "postinstall": "electron-builder install-app-deps",
+    "build": "npm run prebuild && electron-builder --dir",
+    "build:mac": "npm run prebuild && electron-builder --mac",
+    "build:win": "npm run prebuild && electron-builder --win",
+    "build:linux": "npm run prebuild && electron-builder --linux",
+    "build:all": "npm run prebuild && electron-builder --mac --win --linux"
   },
   "keywords": [
     "arcade",
@@ -32,7 +35,7 @@
     "@vitejs/plugin-react": "^4.2.0",
     "concurrently": "^8.2.0",
     "electron": "^35.7.5",
-    "electron-builder": "^24.9.0",
+    "electron-builder": "^25.1.8",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.21.0",
@@ -43,23 +46,46 @@
     "appId": "com.arcade.tournament-manager",
     "productName": "Arcade Tournament Manager",
     "directories": {
-      "output": "dist"
+      "output": "release"
     },
     "files": [
-      "src/**/*",
-      "public/**/*"
+      "src/main/**/*",
+      "src/api/**/*",
+      "src/database/**/*",
+      "dist/renderer/**/*",
+      "package.json"
     ],
+    "extraResources": [],
+    "asar": true,
     "mac": {
       "category": "public.app-category.games",
-      "target": "dmg"
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "artifactName": "${productName}-${version}-mac-${arch}.${ext}"
     },
     "win": {
-      "target": "nsis"
-    }
-  },
-  "overrides": {
-    "electron": {
-      "install": "true"
-    }
+      "target": [
+        "nsis"
+      ],
+      "artifactName": "${productName}-${version}-win-${arch}.${ext}"
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Game",
+      "artifactName": "${productName}-${version}-linux-${arch}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true
+    },
+    "asarUnpack": [
+      "node_modules/better-sqlite3/**"
+    ]
   }
 }
