@@ -15,6 +15,9 @@ jobs:
         with:
           node-version: 20
           cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
       - run: npm ci
       - run: npx vite build --config vite.config.js
       - run: npx electron-builder --mac --arm64
@@ -36,6 +39,9 @@ jobs:
         with:
           node-version: 20
           cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
       - run: npm ci
       - run: npx vite build --config vite.config.js
       - run: npx electron-builder --win
@@ -56,6 +62,9 @@ jobs:
         with:
           node-version: 20
           cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
       - run: npm ci
       - run: npx vite build --config vite.config.js
       - run: npx electron-builder --linux
