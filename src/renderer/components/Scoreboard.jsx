@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 
-function Scoreboard({ apiUrl, title }) {
+function Scoreboard({ apiUrl, title, division }) {
   const [entries, setEntries] = useState([]);
   const [divisions, setDivisions] = useState([]);
   const [editing, setEditing] = useState(null);
@@ -32,7 +32,10 @@ function Scoreboard({ apiUrl, title }) {
   const groups = [];
   const divConfig = {};
   divisions.forEach((d) => { divConfig[d.name] = d; });
-  entries.forEach((e) => {
+  const visibleEntries = division
+    ? entries.filter((e) => (e.division || 'Open') === division)
+    : entries;
+  visibleEntries.forEach((e) => {
     let key = e.division || 'Open';
     let group = groups.find((g) => g.name === key);
     if (!group) {
@@ -98,15 +101,15 @@ function Scoreboard({ apiUrl, title }) {
   return (
     <div>
       <div className="page-header">
-        <h1>Scoreboard</h1>
-        <p>{title} — rankings broken out by division. Click "Set Score" to update a player's score.</p>
+        <h1>{division ? `${division} Scoreboard` : 'Scoreboard'}</h1>
+        <p>{title} — {division ? `${division} rankings` : 'rankings broken out by division'}. Click "Set Score" to update a player's score.</p>
       </div>
 
-      {entries.length === 0 ? (
+      {visibleEntries.length === 0 ? (
         <div className="card">
           <div className="empty-state">
             <div className="icon">🏆</div>
-            <p>No players with scores yet. Scores will appear here once players start playing.</p>
+            <p>{division ? `No players with scores in the ${division} division yet.` : 'No players with scores yet. Scores will appear here once players start playing.'}</p>
           </div>
         </div>
       ) : (

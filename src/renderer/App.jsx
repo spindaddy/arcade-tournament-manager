@@ -16,6 +16,7 @@ function App() {
   const [stats, setStats] = useState(null);
   const [title, setTitle] = useState('Arcade Tournament');
   const [theme, setTheme] = useState('dark');
+  const [divisions, setDivisions] = useState([]);
 
   useEffect(() => {
     fetchStats();
@@ -25,6 +26,10 @@ function App() {
 
   useEffect(() => {
     fetchMeta();
+  }, []);
+
+  useEffect(() => {
+    fetchDivisions();
   }, []);
 
   useEffect(() => {
@@ -52,6 +57,16 @@ function App() {
     }
   };
 
+  const fetchDivisions = async () => {
+    try {
+      const response = await fetch(`${API_URL}/settings`);
+      const settings = await response.json();
+      setDivisions(parseDivisions(settings.divisions));
+    } catch (error) {
+      console.error('Failed to fetch divisions:', error);
+    }
+  };
+
   return (
     <Router>
       <div className="app">
@@ -75,6 +90,15 @@ function App() {
             </li>
             <li>
               <NavLink to="/scoreboard">Scoreboard</NavLink>
+              {divisions.length > 0 && (
+                <ul className="nav-sub">
+                  {divisions.map((d) => (
+                    <li key={d.name}>
+                      <NavLink to={`/scoreboard/${slugify(d.name)}`}>{d.name}</NavLink>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </li>
             <li>
               <NavLink to="/active">Active Sessions</NavLink>
@@ -111,6 +135,13 @@ function App() {
             <Route path="/tournaments" element={<Tournaments apiUrl={API_URL} />} />
             <Route path="/machines" element={<Machines apiUrl={API_URL} />} />
             <Route path="/scoreboard" element={<Scoreboard apiUrl={API_URL} title={title} />} />
+            {divisions.map((d) => (
+              <Route
+                key={d.name}
+                path={`/scoreboard/${slugify(d.name)}`}
+                element={<Scoreboard apiUrl={API_URL} title={title} division={d.name} />}
+              />
+            ))}
             <Route path="/active" element={<ActiveSessions apiUrl={API_URL} />} />
             <Route path="/settings" element={<Settings apiUrl={API_URL} currentTheme={theme} onThemeChange={setTheme} />} />
             <Route path="/guide" element={<InstallGuide />} />
@@ -119,6 +150,28 @@ function App() {
       </div>
     </Router>
   );
+}
+
+function slugify(name) {
+  return name
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+function parseDivisions(value) {
+  if (!value) return [];
+  try {
+    const parsed = JSON.parse(value);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .map((d) => (typeof d === 'string' ? { name: d, active: true, sort_order: 0, max: 0 } : d))
+      .filter((d) => d.active !== false)
+      .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+  } catch (e) {
+    return [];
+  }
 }
 
 export default App;
