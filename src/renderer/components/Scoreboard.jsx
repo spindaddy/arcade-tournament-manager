@@ -71,13 +71,11 @@ function Scoreboard({ apiUrl }) {
     }
   };
 
-  const topThree = entries.slice(0, 3);
-
   return (
     <div>
       <div className="page-header">
         <h1>Scoreboard</h1>
-        <p>Live player standings — click "Add Score" to update a player's score</p>
+        <p>Live player standings — click "+ Add Score" to update a player's score</p>
       </div>
 
       {entries.length === 0 ? (
@@ -88,94 +86,49 @@ function Scoreboard({ apiUrl }) {
           </div>
         </div>
       ) : (
-        <>
-          <div className="podium">
-            {topThree.length > 0 && (
-              <div className="podium-spot podium-second">
-                {topThree[1] && (
-                  <>
-                    <div className="podium-medal">🥈</div>
-                    <div className="podium-name">{topThree[1].player_name}</div>
-                    <div className="podium-score">{topThree[1].total_score}</div>
-                    <div className="podium-bar bar-second">2</div>
-                  </>
-                )}
-              </div>
-            )}
-            {topThree.length > 0 && (
-              <div className="podium-spot podium-first">
-                {topThree[0] && (
-                  <>
-                    <div className="podium-medal">🥇</div>
-                    <div className="podium-name">{topThree[0].player_name}</div>
-                    <div className="podium-score">{topThree[0].total_score}</div>
-                    <div className="podium-bar bar-first">1</div>
-                  </>
-                )}
-              </div>
-            )}
-            {topThree.length > 2 && (
-              <div className="podium-spot podium-third">
-                {topThree[2] && (
-                  <>
-                    <div className="podium-medal">🥉</div>
-                    <div className="podium-name">{topThree[2].player_name}</div>
-                    <div className="podium-score">{topThree[2].total_score}</div>
-                    <div className="podium-bar bar-third">3</div>
-                  </>
-                )}
-              </div>
-            )}
+        <div className="card">
+          <div className="card-header">
+            <h2 className="card-title">Standings</h2>
+            <button className="btn btn-secondary" onClick={fetchScoreboard}>
+              Refresh
+            </button>
           </div>
-
-          <div className="card">
-            <div className="card-header">
-              <h2 className="card-title">Full Standings</h2>
-              <button className="btn btn-secondary" onClick={fetchScoreboard}>
-                Refresh
-              </button>
-            </div>
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Rank</th>
-                  <th>Player</th>
-                  <th>Games</th>
-                  <th>Best Score</th>
-                  <th>Total Score</th>
-                  <th>Status</th>
-                  <th>Actions</th>
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Rank</th>
+                <th>Player</th>
+                <th>Score</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {entries.map((entry) => (
+                <tr key={entry.player_id} className={entry.rank <= 3 ? 'rank-top' : ''}>
+                  <td className="rank-cell">
+                    <span className="rank-number">{entry.rank}</span>
+                    {medalFor(entry.rank)}
+                  </td>
+                  <td>{entry.player_name}</td>
+                  <td className="score-total">{entry.total_score || 0}</td>
+                  <td>
+                    {Number(entry.currently_playing) > 0 ? (
+                      <span className="badge badge-success">● Playing</span>
+                    ) : (
+                      <span className="badge badge-warning">Idle</span>
+                    )}
+                  </td>
+                  <td>
+                    <button className="btn btn-secondary btn-sm" onClick={() => openEditor(entry)}>
+                      + Add Score
+                    </button>
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {entries.map((entry) => (
-                  <tr key={entry.player_id} className={entry.rank <= 3 ? 'rank-top' : ''}>
-                    <td className="rank-cell">
-                      <span className="rank-number">{entry.rank}</span>
-                      {medalFor(entry.rank)}
-                    </td>
-                    <td>{entry.player_name}</td>
-                    <td>{entry.games_played || 0}</td>
-                    <td>{entry.best_score || 0}</td>
-                    <td className="score-total">{entry.total_score || 0}</td>
-                    <td>
-                      {Number(entry.currently_playing) > 0 ? (
-                        <span className="badge badge-success">● Playing</span>
-                      ) : (
-                        <span className="badge badge-warning">Idle</span>
-                      )}
-                    </td>
-                    <td>
-                      <button className="btn btn-secondary btn-sm" onClick={() => openEditor(entry)}>
-                        + Add Score
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
 
       {editing && (
