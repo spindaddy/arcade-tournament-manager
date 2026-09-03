@@ -51,6 +51,23 @@ No additional software needs to be installed. The app is fully self-contained.
 5. ESP32 devices start scanning badges and reporting to the app
 6. Watch the dashboard for live activity
 
+## ESP32 Example Code
+
+Ready-to-use ESP32 firmware is included in the repo:
+
+```
+esp32/arcade_rfid_reader/
+  arcade_rfid_reader.ino   # Arduino IDE sketch
+  platformio.ini           # PlatformIO configuration
+```
+
+This reads RFID badges, reports scans to the app, and beeps for 1 second on a successful check-in (active buzzer on GPIO 4).
+
+- **Arduino IDE:** open `arcade_rfid_reader.ino`, set your WiFi credentials + server IP, flash
+- **PlatformIO:** open the `esp32/arcade_rfid_reader/` folder in VS Code, click Upload
+
+See [INSTALL.md](INSTALL.md) for full wiring diagrams and setup instructions.
+
 ## Development
 
 ### Prerequisites
