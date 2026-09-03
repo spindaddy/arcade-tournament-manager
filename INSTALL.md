@@ -159,6 +159,19 @@ RST        ->  GPIO 27
 
 **Important:** The MFRC522 runs on 3.3V. Do NOT connect it to 5V.
 
+### Buzzer (optional)
+
+Wire an **active** buzzer to GPIO 4 to get a 1-second beep when a player successfully checks in.
+
+```
+Active Buzzer    ESP32 Pin
+-------------    ---------
+Positive (+) ->  GPIO 4
+Negative (-) ->  GND
+```
+
+An active buzzer beeps whenever it has power, so the firmware drives GPIO 4 HIGH for 1 second only when the server confirms a successful check-in. Skip this section if you don't want the beep.
+
 ### Common ESP32 Boards
 
 | Board | WiFi | Bluetooth | Price | Notes |
@@ -206,14 +219,25 @@ const char* READER_ID      = "reader-01";  // Unique per reader!
 
 #define SS_PIN    5
 #define RST_PIN   27
+#define BUZZER_PIN 4
 
 MFRC522 rfid(SS_PIN, RST_PIN);
 String lastUID = "";
 unsigned long lastScanTime = 0;
 const unsigned long DEBOUNCE_MS = 3000;  // Ignore same badge for 3 seconds
 
+// Beep for 1 second on a successful check-in
+void successBeep() {
+  digitalWrite(BUZZER_PIN, HIGH);   // active buzzer = beep on
+  delay(1000);
+  digitalWrite(BUZZER_PIN, LOW);    // beep off
+}
+
 void setup() {
   Serial.begin(115200);
+  pinMode(BUZZER_PIN, OUTPUT);
+  digitalWrite(BUZZER_PIN, LOW);
+
   Serial.println("\n=== Arcade RFID Reader ===");
   Serial.print("Reader ID: ");
   Serial.println(READER_ID);
@@ -288,6 +312,11 @@ void sendScan(String uid) {
     Serial.print(httpCode);
     Serial.println(")");
     Serial.println("Response: " + response);
+
+    // Beep for 1 second only on a successful check-in
+    if (response.indexOf("checked_in") != -1) {
+      successBeep();
+    }
   } else {
     Serial.print("FAILED (");
     Serial.print(http.errorToString(httpCode));

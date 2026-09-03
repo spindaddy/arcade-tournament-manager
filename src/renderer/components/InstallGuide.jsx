@@ -153,6 +153,17 @@ function InstallGuide() {
         </table>
         <p><strong>Important:</strong> The MFRC522 runs on 3.3V. Do NOT connect it to 5V.</p>
 
+        <h3>Buzzer (optional)</h3>
+        <p>Wire an active buzzer to GPIO 4 to get a 1-second beep when a player successfully checks in.</p>
+        <table>
+          <thead><tr><th>Buzzer Pin</th><th>ESP32 Pin</th></tr></thead>
+          <tbody>
+            <tr><td>Positive (+)</td><td>GPIO 4</td></tr>
+            <tr><td>Negative (-)</td><td>GND</td></tr>
+          </tbody>
+        </table>
+        <p>An <strong>active</strong> buzzer beeps whenever it has power, so driving GPIO 4 HIGH makes it beep. Use the firmware below &mdash; it beeps for 1 second only when the server confirms a successful check-in.</p>
+
         <h2 id="programming-the-esp32">Programming the ESP32</h2>
 
         <h3>Prerequisites</h3>
@@ -179,16 +190,27 @@ const char* WIFI_PASSWORD  = "YOUR_WIFI_PASSWORD";
 const char* SERVER_URL     = "http://192.168.1.100:3001/api/scan";
 const char* READER_ID      = "reader-01";  // Unique per reader!
 
-#define SS_PIN    5
-#define RST_PIN   27
+#define SS_PIN       5
+#define RST_PIN      27
+#define BUZZER_PIN   4
 
 MFRC522 rfid(SS_PIN, RST_PIN);
 String lastUID = "";
 unsigned long lastScanTime = 0;
 const unsigned long DEBOUNCE_MS = 3000;
 
+// Beep for 1 second on a successful check-in
+void successBeep() {
+  digitalWrite(BUZZER_PIN, HIGH);   // active buzzer = beep on
+  delay(1000);
+  digitalWrite(BUZZER_PIN, LOW);    // beep off
+}
+
 void setup() {
   Serial.begin(115200);
+  pinMode(BUZZER_PIN, OUTPUT);
+  digitalWrite(BUZZER_PIN, LOW);
+
   SPI.begin();
   rfid.PCD_Init();
   delay(100);
@@ -246,7 +268,13 @@ void sendScan(String uid) {
   int httpCode = http.POST(payload);
 
   if (httpCode > 0) {
-    Serial.println("Response: " + http.getString());
+    String response = http.getString();
+    Serial.println("Response: " + response);
+
+    // Beep for 1 second only on a successful check-in
+    if (response.indexOf("checked_in") != -1) {
+      successBeep();
+    }
   } else {
     Serial.println("FAILED: " + http.errorToString(httpCode));
   }
