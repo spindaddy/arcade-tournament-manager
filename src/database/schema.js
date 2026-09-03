@@ -22,6 +22,7 @@ function initializeDatabase() {
       email TEXT,
       phone TEXT,
       twitch_name TEXT,
+      division TEXT,
       rfid_uid TEXT UNIQUE,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -99,6 +100,9 @@ function initializeDatabase() {
     const playerCols = db.prepare(`PRAGMA table_info(players)`).all();
     if (!playerCols.find(c => c.name === 'twitch_name')) {
       db.exec(`ALTER TABLE players ADD COLUMN twitch_name TEXT`);
+    }
+    if (!playerCols.find(c => c.name === 'division')) {
+      db.exec(`ALTER TABLE players ADD COLUMN division TEXT`);
     }
   } catch (migrationError) {
     console.error('twitch_name migration skipped:', migrationError.message);

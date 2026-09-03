@@ -2,16 +2,34 @@ import React, { useState, useEffect } from 'react';
 
 function Players({ apiUrl }) {
   const [players, setPlayers] = useState([]);
+  const [divisions, setDivisions] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState(null);
   const [showBadgeModal, setShowBadgeModal] = useState(false);
   const [selectedPlayer, setSelectedPlayer] = useState(null);
-  const [formData, setFormData] = useState({ name: '', email: '', phone: '', twitch_name: '' });
+  const [formData, setFormData] = useState({ name: '', email: '', phone: '', twitch_name: '', division: '' });
   const [badgeData, setBadgeData] = useState({ rfid_uid: '' });
 
   useEffect(() => {
     fetchPlayers();
+    fetchDivisions();
   }, []);
+
+  const fetchDivisions = async () => {
+    try {
+      const response = await fetch(`${apiUrl}/settings`);
+      const settings = await response.json();
+      if (settings.divisions) {
+        try {
+          setDivisions(JSON.parse(settings.divisions));
+        } catch (e) {
+          setDivisions([]);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch divisions:', error);
+    }
+  };
 
   const fetchPlayers = async () => {
     try {
@@ -25,7 +43,7 @@ function Players({ apiUrl }) {
 
   const openCreate = () => {
     setEditing(null);
-    setFormData({ name: '', email: '', phone: '', twitch_name: '' });
+    setFormData({ name: '', email: '', phone: '', twitch_name: '', division: '' });
     setShowModal(true);
   };
 
@@ -35,7 +53,8 @@ function Players({ apiUrl }) {
       name: player.name,
       email: player.email || '',
       phone: player.phone || '',
-      twitch_name: player.twitch_name || ''
+      twitch_name: player.twitch_name || '',
+      division: player.division || ''
     });
     setShowModal(true);
   };
@@ -58,7 +77,7 @@ function Players({ apiUrl }) {
       }
       setShowModal(false);
       setEditing(null);
-      setFormData({ name: '', email: '', phone: '', twitch_name: '' });
+      setFormData({ name: '', email: '', phone: '', twitch_name: '', division: '' });
       fetchPlayers();
     } catch (error) {
       console.error('Failed to save player:', error);
@@ -130,6 +149,7 @@ function Players({ apiUrl }) {
                 <th>Email</th>
                 <th>Phone</th>
                 <th>Twitch</th>
+                <th>Division</th>
                 <th>RFID Badge</th>
                 <th>Actions</th>
               </tr>
@@ -141,6 +161,7 @@ function Players({ apiUrl }) {
                   <td>{player.email || '-'}</td>
                   <td>{player.phone || '-'}</td>
                   <td>{player.twitch_name ? `@${player.twitch_name}` : '-'}</td>
+                  <td>{player.division ? <span className="badge badge-success">{player.division}</span> : '-'}</td>
                   <td>
                     {player.rfid_uid ? (
                       <span className="badge badge-success">{player.rfid_uid}</span>
@@ -213,6 +234,23 @@ function Players({ apiUrl }) {
                   onChange={(e) => setFormData({ ...formData, twitch_name: e.target.value })}
                   placeholder="yourtwitchchannel"
                 />
+              </div>
+              <div className="form-group">
+                <label>Division</label>
+                <select
+                  value={formData.division}
+                  onChange={(e) => setFormData({ ...formData, division: e.target.value })}
+                >
+                  <option value="">— Select Division —</option>
+                  {divisions.map((d) => (
+                    <option key={d} value={d}>{d}</option>
+                  ))}
+                </select>
+                {divisions.length === 0 && (
+                  <p style={{ color: 'var(--text-secondary)', fontSize: '13px', marginTop: '6px' }}>
+                    No divisions defined. Add them under Settings → Divisions.
+                  </p>
+                )}
               </div>
               <div className="modal-actions">
                 <button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)}>

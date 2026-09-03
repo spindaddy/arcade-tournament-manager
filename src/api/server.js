@@ -154,7 +154,7 @@ app.get('/api/players', (req, res) => {
 
 // Register player
 app.post('/api/players', (req, res) => {
-  const { name, email, phone, twitch_name } = req.body;
+  const { name, email, phone, twitch_name, division } = req.body;
   
   if (!name) {
     return res.status(400).json({ error: 'Name is required' });
@@ -162,19 +162,19 @@ app.post('/api/players', (req, res) => {
 
   const id = uuidv4();
   db.prepare(`
-    INSERT INTO players (id, name, email, phone, twitch_name)
-    VALUES (?, ?, ?, ?, ?)
-  `).run(id, name, email || null, phone || null, twitch_name || null);
+    INSERT INTO players (id, name, email, phone, twitch_name, division)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `).run(id, name, email || null, phone || null, twitch_name || null, division || null);
 
-  res.json({ id, name, email, phone, twitch_name });
+  res.json({ id, name, email, phone, twitch_name, division });
 });
 
 // Update player
 app.put('/api/players/:id', (req, res) => {
-  const { name, email, phone, twitch_name } = req.body;
+  const { name, email, phone, twitch_name, division } = req.body;
   const player = db.prepare('SELECT * FROM players WHERE id = ?').get(req.params.id);
   if (!player) return res.status(404).json({ error: 'Player not found' });
-  db.prepare(`UPDATE players SET name = ?, email = ?, phone = ?, twitch_name = ?, updated_at = datetime('now') WHERE id = ?`).run(name || player.name, email !== undefined ? email : player.email, phone !== undefined ? phone : player.phone, twitch_name !== undefined ? twitch_name : player.twitch_name, player.id);
+  db.prepare(`UPDATE players SET name = ?, email = ?, phone = ?, twitch_name = ?, division = ?, updated_at = datetime('now') WHERE id = ?`).run(name || player.name, email !== undefined ? email : player.email, phone !== undefined ? phone : player.phone, twitch_name !== undefined ? twitch_name : player.twitch_name, division !== undefined ? division : player.division, player.id);
   res.json(db.prepare('SELECT * FROM players WHERE id = ?').get(player.id));
 });
 

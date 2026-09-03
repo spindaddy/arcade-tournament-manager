@@ -95,6 +95,7 @@ function startApiServer() {
         email TEXT,
         phone TEXT,
         twitch_name TEXT,
+        division TEXT,
         rfid_uid TEXT UNIQUE,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -165,6 +166,9 @@ function startApiServer() {
       const playerCols = db.prepare(`PRAGMA table_info(players)`).all();
       if (!playerCols.find(c => c.name === 'twitch_name')) {
         db.exec(`ALTER TABLE players ADD COLUMN twitch_name TEXT`);
+      }
+      if (!playerCols.find(c => c.name === 'division')) {
+        db.exec(`ALTER TABLE players ADD COLUMN division TEXT`);
       }
     } catch (migrationError) {
       console.error('twitch_name migration skipped:', migrationError.message);
@@ -279,18 +283,18 @@ function startApiServer() {
     });
 
     apiApp.post('/api/players', (req, res) => {
-      const { name, email, phone, twitch_name } = req.body;
+      const { name, email, phone, twitch_name, division } = req.body;
       if (!name) return res.status(400).json({ error: 'Name is required' });
       const id = uuidv4();
-      db.prepare(`INSERT INTO players (id, name, email, phone, twitch_name) VALUES (?, ?, ?, ?, ?)`).run(id, name, email || null, phone || null, twitch_name || null);
-      res.json({ id, name, email, phone, twitch_name });
+      db.prepare(`INSERT INTO players (id, name, email, phone, twitch_name, division) VALUES (?, ?, ?, ?, ?, ?)`).run(id, name, email || null, phone || null, twitch_name || null, division || null);
+      res.json({ id, name, email, phone, twitch_name, division });
     });
 
     apiApp.put('/api/players/:id', (req, res) => {
-      const { name, email, phone, twitch_name } = req.body;
+      const { name, email, phone, twitch_name, division } = req.body;
       const player = db.prepare('SELECT * FROM players WHERE id = ?').get(req.params.id);
       if (!player) return res.status(404).json({ error: 'Player not found' });
-      db.prepare(`UPDATE players SET name = ?, email = ?, phone = ?, twitch_name = ?, updated_at = datetime('now') WHERE id = ?`).run(name || player.name, email !== undefined ? email : player.email, phone !== undefined ? phone : player.phone, twitch_name !== undefined ? twitch_name : player.twitch_name, player.id);
+      db.prepare(`UPDATE players SET name = ?, email = ?, phone = ?, twitch_name = ?, division = ?, updated_at = datetime('now') WHERE id = ?`).run(name || player.name, email !== undefined ? email : player.email, phone !== undefined ? phone : player.phone, twitch_name !== undefined ? twitch_name : player.twitch_name, division !== undefined ? division : player.division, player.id);
       const updated = db.prepare('SELECT * FROM players WHERE id = ?').get(player.id);
       res.json(updated);
     });
