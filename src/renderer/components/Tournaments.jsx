@@ -1,161 +1,132 @@
 import React, { useState, useEffect } from 'react';
 
 function Tournaments({ apiUrl }) {
-  const [tournaments, setTournaments] = useState([]);
-  const [showModal, setShowModal] = useState(false);
+  const [tournament, setTournament] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [formData, setFormData] = useState({
     name: '',
     description: '',
     start_date: '',
     end_date: ''
   });
+  const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    fetchTournaments();
+    fetchTournament();
   }, []);
 
-  const fetchTournaments = async () => {
+  const fetchTournament = async () => {
     try {
-      const response = await fetch(`${apiUrl}/tournaments`);
+      const response = await fetch(`${apiUrl}/tournament/current`);
       const data = await response.json();
-      setTournaments(data);
+      setTournament(data);
+      setFormData({
+        name: data?.name || '',
+        description: data?.description || '',
+        start_date: data?.start_date ? toLocalInput(data.start_date) : '',
+        end_date: data?.end_date ? toLocalInput(data.end_date) : ''
+      });
     } catch (error) {
-      console.error('Failed to fetch tournaments:', error);
+      console.error('Failed to fetch tournament:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setSaved(false);
     try {
-      await fetch(`${apiUrl}/tournaments`, {
+      const body = {
+        ...formData,
+        start_date: formData.start_date ? new Date(formData.start_date).toISOString() : null,
+        end_date: formData.end_date ? new Date(formData.end_date).toISOString() : null
+      };
+      const response = await fetch(`${apiUrl}/tournaments`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
+        body: JSON.stringify(body)
       });
-      setShowModal(false);
-      setFormData({ name: '', description: '', start_date: '', end_date: '' });
-      fetchTournaments();
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error || 'Failed to save tournament');
+      }
+      setTournament(await response.json());
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
     } catch (error) {
-      console.error('Failed to create tournament:', error);
-    }
-  };
-
-  const getStatusBadge = (status) => {
-    switch (status) {
-      case 'active':
-        return <span className="badge badge-success">Active</span>;
-      case 'completed':
-        return <span className="badge badge-danger">Completed</span>;
-      default:
-        return <span className="badge badge-warning">Pending</span>;
+      console.error('Failed to save tournament:', error);
+      alert(error.message);
     }
   };
 
   return (
     <div>
       <div className="page-header">
-        <h1>Tournaments</h1>
-        <p>Create and manage your arcade tournaments</p>
+        <h1>Tournament</h1>
+        <p>Set up the current tournament. Each tournament is configured here; the title is used across the app and scoreboard.</p>
       </div>
 
       <div className="card">
         <div className="card-header">
-          <h2 className="card-title">Tournaments</h2>
-          <button className="btn btn-primary" onClick={() => setShowModal(true)}>
-            + New Tournament
-          </button>
+          <h2 className="card-title">{tournament ? 'Current Tournament' : 'Create Tournament'}</h2>
+          {saved && <span className="badge badge-success">Saved ✓</span>}
         </div>
-        {tournaments.length === 0 ? (
-          <div className="empty-state">
-            <div className="icon">🏆</div>
-            <p>No tournaments created yet. Start by creating your first tournament.</p>
-          </div>
+        {loading ? (
+          <div className="empty-state">Loading...</div>
         ) : (
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Description</th>
-                <th>Start Date</th>
-                <th>End Date</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {tournaments.map((tournament) => (
-                <tr key={tournament.id}>
-                  <td>{tournament.name}</td>
-                  <td>{tournament.description || '-'}</td>
-                  <td>
-                    {tournament.start_date
-                      ? new Date(tournament.start_date).toLocaleDateString()
-                      : '-'}
-                  </td>
-                  <td>
-                    {tournament.end_date
-                      ? new Date(tournament.end_date).toLocaleDateString()
-                      : '-'}
-                  </td>
-                  <td>{getStatusBadge(tournament.status)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <form onSubmit={handleSubmit}>
+            <div className="form-group">
+              <label>Tournament Name *</label>
+              <input
+                type="text"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                required
+                placeholder="e.g., Summer Arcade Cup 2026"
+              />
+            </div>
+            <div className="form-group">
+              <label>Description</label>
+              <input
+                type="text"
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              />
+            </div>
+            <div className="form-group">
+              <label>Start Date</label>
+              <input
+                type="datetime-local"
+                value={formData.start_date}
+                onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
+              />
+            </div>
+            <div className="form-group">
+              <label>End Date</label>
+              <input
+                type="datetime-local"
+                value={formData.end_date}
+                onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
+              />
+            </div>
+            <div className="modal-actions">
+              <button type="submit" className="btn btn-primary">
+                Save Tournament
+              </button>
+            </div>
+          </form>
         )}
       </div>
-
-      {showModal && (
-        <div className="modal-overlay" onClick={() => setShowModal(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <h2>Create Tournament</h2>
-            <form onSubmit={handleSubmit}>
-              <div className="form-group">
-                <label>Name *</label>
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  required
-                />
-              </div>
-              <div className="form-group">
-                <label>Description</label>
-                <input
-                  type="text"
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                />
-              </div>
-              <div className="form-group">
-                <label>Start Date</label>
-                <input
-                  type="datetime-local"
-                  value={formData.start_date}
-                  onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
-                />
-              </div>
-              <div className="form-group">
-                <label>End Date</label>
-                <input
-                  type="datetime-local"
-                  value={formData.end_date}
-                  onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
-                />
-              </div>
-              <div className="modal-actions">
-                <button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)}>
-                  Cancel
-                </button>
-                <button type="submit" className="btn btn-primary">
-                  Create
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
+}
+
+function toLocalInput(iso) {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '';
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
 export default Tournaments;

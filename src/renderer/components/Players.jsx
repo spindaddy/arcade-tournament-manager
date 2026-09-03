@@ -5,7 +5,7 @@ function Players({ apiUrl }) {
   const [showModal, setShowModal] = useState(false);
   const [showBadgeModal, setShowBadgeModal] = useState(false);
   const [selectedPlayer, setSelectedPlayer] = useState(null);
-  const [formData, setFormData] = useState({ name: '', email: '', phone: '' });
+  const [formData, setFormData] = useState({ name: '', email: '', phone: '', twitch_name: '' });
   const [badgeData, setBadgeData] = useState({ rfid_uid: '' });
 
   useEffect(() => {
@@ -31,7 +31,7 @@ function Players({ apiUrl }) {
         body: JSON.stringify(formData)
       });
       setShowModal(false);
-      setFormData({ name: '', email: '', phone: '' });
+      setFormData({ name: '', email: '', phone: '', twitch_name: '' });
       fetchPlayers();
     } catch (error) {
       console.error('Failed to create player:', error);
@@ -85,22 +85,24 @@ function Players({ apiUrl }) {
           </div>
         ) : (
           <table className="table">
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Email</th>
-                <th>Phone</th>
-                <th>RFID Badge</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {players.map((player) => (
-                <tr key={player.id}>
-                  <td>{player.name}</td>
-                  <td>{player.email || '-'}</td>
-                  <td>{player.phone || '-'}</td>
-                  <td>
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Email</th>
+                  <th>Phone</th>
+                  <th>Twitch</th>
+                  <th>RFID Badge</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {players.map((player) => (
+                  <tr key={player.id}>
+                    <td>{player.name}</td>
+                    <td>{player.email || '-'}</td>
+                    <td>{player.phone || '-'}</td>
+                    <td>{player.twitch_name ? `@${player.twitch_name}` : '-'}</td>
+                    <td>
                     {player.rfid_uid ? (
                       <span className="badge badge-success">{player.rfid_uid}</span>
                     ) : (
@@ -155,6 +157,15 @@ function Players({ apiUrl }) {
                   type="tel"
                   value={formData.phone}
                   onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                />
+              </div>
+              <div className="form-group">
+                <label>Twitch Name</label>
+                <input
+                  type="text"
+                  value={formData.twitch_name}
+                  onChange={(e) => setFormData({ ...formData, twitch_name: e.target.value })}
+                  placeholder="yourtwitchchannel"
                 />
               </div>
               <div className="modal-actions">

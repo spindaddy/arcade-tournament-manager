@@ -22,6 +22,31 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// App settings (theme, etc.)
+app.get('/api/settings', (req, res) => {
+  const rows = db.prepare('SELECT key, value FROM settings').all();
+  const settings = {};
+  rows.forEach(r => { settings[r.key] = r.value; });
+  res.json(settings);
+});
+
+app.put('/api/settings', (req, res) => {
+  const entries = req.body || {};
+  const stmt = db.prepare(`INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value`);
+  Object.keys(entries).forEach(key => stmt.run(key, String(entries[key])));
+  const settings = {};
+  db.prepare('SELECT key, value FROM settings').all().forEach(r => { settings[r.key] = r.value; });
+  res.json(settings);
+});
+
+// Consolidated app meta for web page + title
+app.get('/api/meta', (req, res) => {
+  const tournament = db.prepare('SELECT * FROM tournaments LIMIT 1').get();
+  const settings = {};
+  db.prepare('SELECT key, value FROM settings').all().forEach(r => { settings[r.key] = r.value; });
+  res.json({ title: tournament ? tournament.name : 'Arcade Tournament', theme: settings.theme || 'dark', tournament });
+});
+
 // ESP32 RFID scan endpoint
 app.post('/api/scan', (req, res) => {
   const { badge_uid, reader_id } = req.body;
@@ -129,7 +154,7 @@ app.get('/api/players', (req, res) => {
 
 // Register player
 app.post('/api/players', (req, res) => {
-  const { name, email, phone } = req.body;
+  const { name, email, phone, twitch_name } = req.body;
   
   if (!name) {
     return res.status(400).json({ error: 'Name is required' });
@@ -137,11 +162,11 @@ app.post('/api/players', (req, res) => {
 
   const id = uuidv4();
   db.prepare(`
-    INSERT INTO players (id, name, email, phone)
-    VALUES (?, ?, ?, ?)
-  `).run(id, name, email || null, phone || null);
+    INSERT INTO players (id, name, email, phone, twitch_name)
+    VALUES (?, ?, ?, ?, ?)
+  `).run(id, name, email || null, phone || null, twitch_name || null);
 
-  res.json({ id, name, email, phone });
+  res.json({ id, name, email, phone, twitch_name });
 });
 
 // Assign RFID badge to player
@@ -168,13 +193,13 @@ app.post('/api/badges/assign', (req, res) => {
   res.json({ id, rfid_uid, player_id });
 });
 
-// Get tournaments
+// Get tournaments (single current tournament)
 app.get('/api/tournaments', (req, res) => {
   const tournaments = db.prepare('SELECT * FROM tournaments ORDER BY created_at DESC').all();
-  res.json(tournaments);
+  res.json(tournaments.map(t => ({ ...t, single: true })));
 });
 
-// Create tournament
+// Create or update the single tournament
 app.post('/api/tournaments', (req, res) => {
   const { name, description, start_date, end_date } = req.body;
   
@@ -182,13 +207,37 @@ app.post('/api/tournaments', (req, res) => {
     return res.status(400).json({ error: 'Name is required' });
   }
 
+  const existing = db.prepare('SELECT id FROM tournaments LIMIT 1').get();
+  if (existing && !req.body.force) {
+    return res.status(409).json({ error: 'Only one tournament is allowed. Use the edit control to update it.' });
+  }
+
+  if (existing) {
+    db.prepare(`UPDATE tournaments SET name = ?, description = ?, start_date = ?, end_date = ?, updated_at = datetime('now') WHERE id = ?`).run(name, description || null, start_date || null, end_date || null, existing.id);
+    return res.json(db.prepare('SELECT * FROM tournaments WHERE id = ?').get(existing.id));
+  }
+
   const id = uuidv4();
   db.prepare(`
-    INSERT INTO tournaments (id, name, description, start_date, end_date)
-    VALUES (?, ?, ?, ?, ?)
+    INSERT INTO tournaments (id, name, description, start_date, end_date, status)
+    VALUES (?, ?, ?, ?, ?, 'active')
   `).run(id, name, description || null, start_date || null, end_date || null);
 
-  res.json({ id, name, description, start_date, end_date });
+  res.json(db.prepare('SELECT * FROM tournaments WHERE id = ?').get(id));
+});
+
+// Current tournament lookup (single record)
+app.get('/api/tournament/current', (req, res) => {
+  const row = db.prepare('SELECT * FROM tournaments LIMIT 1').get();
+  res.json(row || null);
+});
+
+app.put('/api/tournaments', (req, res) => {
+  const { name, description, start_date, end_date } = req.body;
+  const row = db.prepare('SELECT * FROM tournaments LIMIT 1').get();
+  if (!row) return res.status(404).json({ error: 'No tournament exists yet' });
+  db.prepare(`UPDATE tournaments SET name = ?, description = ?, start_date = ?, end_date = ?, updated_at = datetime('now') WHERE id = ?`).run(name || row.name, description !== undefined ? description : row.description, start_date !== undefined ? start_date : row.start_date, end_date !== undefined ? end_date : row.end_date, row.id);
+  res.json(db.prepare('SELECT * FROM tournaments WHERE id = ?').get(row.id));
 });
 
 // Get arcade machines
@@ -254,9 +303,9 @@ app.get('/api/scoreboard', (req, res) => {
   res.json(ranked);
 });
 
-// Add or set a player's score (current session or new)
+// Add a score to a player's running total
 app.post('/api/score', (req, res) => {
-  const { player_id, score, action = 'add' } = req.body;
+  const { player_id, score } = req.body;
   if (!player_id) return res.status(400).json({ error: 'player_id required' });
   if (typeof score !== 'number' || isNaN(score)) return res.status(400).json({ error: 'score must be a number' });
 
@@ -266,11 +315,7 @@ app.post('/api/score', (req, res) => {
   const activeSession = db.prepare(`SELECT * FROM game_sessions WHERE player_id = ? AND end_time IS NULL ORDER BY start_time DESC LIMIT 1`).get(player_id);
 
   if (activeSession) {
-    if (action === 'add') {
-      db.prepare(`UPDATE game_sessions SET score = score + ? WHERE id = ?`).run(score, activeSession.id);
-    } else {
-      db.prepare(`UPDATE game_sessions SET score = ? WHERE id = ?`).run(score, activeSession.id);
-    }
+    db.prepare(`UPDATE game_sessions SET score = score + ? WHERE id = ?`).run(score, activeSession.id);
     const updated = db.prepare(`SELECT score FROM game_sessions WHERE id = ?`).get(activeSession.id);
     return res.json({ ok: true, player_id, score: updated.score });
   }

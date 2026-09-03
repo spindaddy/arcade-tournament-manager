@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
 
-function Scoreboard({ apiUrl }) {
+function Scoreboard({ apiUrl, title }) {
   const [entries, setEntries] = useState([]);
   const [editing, setEditing] = useState(null);
   const [scoreInput, setScoreInput] = useState('');
-  const [action, setAction] = useState('add');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -27,7 +26,6 @@ function Scoreboard({ apiUrl }) {
   const openEditor = (entry) => {
     setEditing(entry);
     setScoreInput('');
-    setAction('add');
     setError('');
   };
 
@@ -45,7 +43,7 @@ function Scoreboard({ apiUrl }) {
       const response = await fetch(`${apiUrl}/score`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ player_id: editing.player_id, score: value, action })
+        body: JSON.stringify({ player_id: editing.player_id, score: value })
       });
 
       if (!response.ok) {
@@ -75,7 +73,7 @@ function Scoreboard({ apiUrl }) {
     <div>
       <div className="page-header">
         <h1>Scoreboard</h1>
-        <p>Live player standings — click "+ Add Score" to update a player's score</p>
+        <p>{title} — click "+ Add Score" to update a player's score</p>
       </div>
 
       {entries.length === 0 ? (
@@ -140,14 +138,7 @@ function Scoreboard({ apiUrl }) {
             </p>
             <form onSubmit={submitScore}>
               <div className="form-group">
-                <label>Action</label>
-                <select value={action} onChange={(e) => setAction(e.target.value)}>
-                  <option value="add">Add to total (+)</option>
-                  <option value="set">Set to exact value</option>
-                </select>
-              </div>
-              <div className="form-group">
-                <label>Score</label>
+                <label>Score to Add</label>
                 <input
                   type="number"
                   min="0"

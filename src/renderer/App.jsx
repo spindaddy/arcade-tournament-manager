@@ -7,17 +7,29 @@ import Machines from './components/Machines';
 import ActiveSessions from './components/ActiveSessions';
 import InstallGuide from './components/InstallGuide';
 import Scoreboard from './components/Scoreboard';
+import Settings from './components/Settings';
 
 const API_URL = 'http://localhost:3001/api';
+const API_BASE = 'http://localhost:3001';
 
 function App() {
   const [stats, setStats] = useState(null);
+  const [title, setTitle] = useState('Arcade Tournament');
+  const [theme, setTheme] = useState('dark');
 
   useEffect(() => {
     fetchStats();
     const interval = setInterval(fetchStats, 5000);
     return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    fetchMeta();
+  }, []);
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+  }, [theme]);
 
   const fetchStats = async () => {
     try {
@@ -29,13 +41,24 @@ function App() {
     }
   };
 
+  const fetchMeta = async () => {
+    try {
+      const response = await fetch(`${API_URL}/meta`);
+      const data = await response.json();
+      if (data.title) setTitle(data.title);
+      if (data.theme) setTheme(data.theme);
+    } catch (error) {
+      console.error('Failed to fetch meta:', error);
+    }
+  };
+
   return (
     <Router>
       <div className="app">
         <nav className="sidebar">
           <div className="logo">
             <span className="logo-icon">🎮</span>
-            <span className="logo-text">Arcade Tourney</span>
+            <span className="logo-text">{title}</span>
           </div>
           <ul className="nav-links">
             <li>
@@ -45,7 +68,7 @@ function App() {
               <NavLink to="/players">Players</NavLink>
             </li>
             <li>
-              <NavLink to="/tournaments">Tournaments</NavLink>
+              <NavLink to="/tournaments">Tournament</NavLink>
             </li>
             <li>
               <NavLink to="/machines">Machines</NavLink>
@@ -55,6 +78,9 @@ function App() {
             </li>
             <li>
               <NavLink to="/active">Active Sessions</NavLink>
+            </li>
+            <li>
+              <NavLink to="/settings">Settings</NavLink>
             </li>
             <li>
               <NavLink to="/guide">Install Guide</NavLink>
@@ -70,17 +96,23 @@ function App() {
                 <span className="stat-value">{stats.playerCount}</span>
                 <span className="stat-label">Players</span>
               </div>
+              <div className="stat-item">
+                <a href={API_BASE} target="_blank" rel="noreferrer" style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>
+                  Open Scoreboard ↗
+                </a>
+              </div>
             </div>
           )}
         </nav>
         <main className="main-content">
           <Routes>
-            <Route path="/" element={<Dashboard stats={stats} apiUrl={API_URL} />} />
+            <Route path="/" element={<Dashboard stats={stats} apiUrl={API_URL} title={title} />} />
             <Route path="/players" element={<Players apiUrl={API_URL} />} />
             <Route path="/tournaments" element={<Tournaments apiUrl={API_URL} />} />
             <Route path="/machines" element={<Machines apiUrl={API_URL} />} />
-            <Route path="/scoreboard" element={<Scoreboard apiUrl={API_URL} />} />
+            <Route path="/scoreboard" element={<Scoreboard apiUrl={API_URL} title={title} />} />
             <Route path="/active" element={<ActiveSessions apiUrl={API_URL} />} />
+            <Route path="/settings" element={<Settings apiUrl={API_URL} currentTheme={theme} onThemeChange={setTheme} />} />
             <Route path="/guide" element={<InstallGuide />} />
           </Routes>
         </main>

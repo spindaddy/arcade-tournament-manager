@@ -21,6 +21,7 @@ function initializeDatabase() {
       name TEXT NOT NULL,
       email TEXT,
       phone TEXT,
+      twitch_name TEXT,
       rfid_uid TEXT UNIQUE,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -86,7 +87,22 @@ function initializeDatabase() {
       FOREIGN KEY (machine_id) REFERENCES arcade_machines(id),
       FOREIGN KEY (tournament_id) REFERENCES tournaments(id)
     );
+
+    CREATE TABLE IF NOT EXISTS settings (
+      key TEXT PRIMARY KEY,
+      value TEXT
+    );
   `);
+
+  // Migration: add twitch_name column to players if missing
+  try {
+    const playerCols = db.prepare(`PRAGMA table_info(players)`).all();
+    if (!playerCols.find(c => c.name === 'twitch_name')) {
+      db.exec(`ALTER TABLE players ADD COLUMN twitch_name TEXT`);
+    }
+  } catch (migrationError) {
+    console.error('twitch_name migration skipped:', migrationError.message);
+  }
 
   // Migration: ensure machine_id is nullable on game_sessions
   try {

@@ -94,6 +94,7 @@ function startApiServer() {
         name TEXT NOT NULL,
         email TEXT,
         phone TEXT,
+        twitch_name TEXT,
         rfid_uid TEXT UNIQUE,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -153,7 +154,21 @@ function startApiServer() {
         FOREIGN KEY (machine_id) REFERENCES arcade_machines(id),
         FOREIGN KEY (tournament_id) REFERENCES tournaments(id)
       );
+      CREATE TABLE IF NOT EXISTS settings (
+        key TEXT PRIMARY KEY,
+        value TEXT
+      );
     `);
+
+    // Migration: add twitch_name column to players if missing
+    try {
+      const playerCols = db.prepare(`PRAGMA table_info(players)`).all();
+      if (!playerCols.find(c => c.name === 'twitch_name')) {
+        db.exec(`ALTER TABLE players ADD COLUMN twitch_name TEXT`);
+      }
+    } catch (migrationError) {
+      console.error('twitch_name migration skipped:', migrationError.message);
+    }
 
     // Migration: ensure machine_id is nullable on game_sessions
     try {
@@ -187,6 +202,33 @@ function startApiServer() {
 
     apiApp.get('/api/health', (req, res) => {
       res.json({ status: 'ok', timestamp: new Date().toISOString() });
+    });
+
+    // App settings (theme, etc.)
+    apiApp.get('/api/settings', (req, res) => {
+      const rows = db.prepare('SELECT key, value FROM settings').all();
+      const settings = {};
+      rows.forEach(r => { settings[r.key] = r.value; });
+      res.json(settings);
+    });
+
+    apiApp.put('/api/settings', (req, res) => {
+      const entries = req.body || {};
+      const stmt = db.prepare(`INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value`);
+      Object.keys(entries).forEach(key => stmt.run(key, String(entries[key])));
+      const rows = db.prepare('SELECT key, value FROM settings').all();
+      const settings = {};
+      rows.forEach(r => { settings[r.key] = r.value; });
+      res.json(settings);
+    });
+
+    // Consolidated app meta for web page + title
+    apiApp.get('/api/meta', (req, res) => {
+      const tournament = db.prepare('SELECT * FROM tournaments LIMIT 1').get();
+      const settingsRows = db.prepare('SELECT key, value FROM settings').all();
+      const settings = {};
+      settingsRows.forEach(r => { settings[r.key] = r.value; });
+      res.json({ title: tournament ? tournament.name : 'Arcade Tournament', theme: settings.theme || 'dark', tournament });
     });
 
     apiApp.post('/api/scan', (req, res) => {
@@ -237,11 +279,11 @@ function startApiServer() {
     });
 
     apiApp.post('/api/players', (req, res) => {
-      const { name, email, phone } = req.body;
+      const { name, email, phone, twitch_name } = req.body;
       if (!name) return res.status(400).json({ error: 'Name is required' });
       const id = uuidv4();
-      db.prepare(`INSERT INTO players (id, name, email, phone) VALUES (?, ?, ?, ?)`).run(id, name, email || null, phone || null);
-      res.json({ id, name, email, phone });
+      db.prepare(`INSERT INTO players (id, name, email, phone, twitch_name) VALUES (?, ?, ?, ?, ?)`).run(id, name, email || null, phone || null, twitch_name || null);
+      res.json({ id, name, email, phone, twitch_name });
     });
 
     apiApp.post('/api/badges/assign', (req, res) => {
@@ -256,15 +298,41 @@ function startApiServer() {
     });
 
     apiApp.get('/api/tournaments', (req, res) => {
-      res.json(db.prepare('SELECT * FROM tournaments ORDER BY created_at DESC').all());
+      const rows = db.prepare('SELECT * FROM tournaments ORDER BY created_at DESC').all();
+      res.json(rows.map(t => ({ ...t, single: true })));
     });
 
     apiApp.post('/api/tournaments', (req, res) => {
       const { name, description, start_date, end_date } = req.body;
       if (!name) return res.status(400).json({ error: 'Name is required' });
+      const existing = db.prepare('SELECT id FROM tournaments LIMIT 1').get();
+      if (existing && !req.body.force) {
+        return res.status(409).json({ error: 'Only one tournament is allowed. Use the edit control to update it.' });
+      }
+      if (existing) {
+        db.prepare(`UPDATE tournaments SET name = ?, description = ?, start_date = ?, end_date = ?, updated_at = datetime('now') WHERE id = ?`).run(name, description || null, start_date || null, end_date || null, existing.id);
+        const updated = db.prepare('SELECT * FROM tournaments WHERE id = ?').get(existing.id);
+        return res.json(updated);
+      }
       const id = uuidv4();
-      db.prepare(`INSERT INTO tournaments (id, name, description, start_date, end_date) VALUES (?, ?, ?, ?, ?)`).run(id, name, description || null, start_date || null, end_date || null);
-      res.json({ id, name, description, start_date, end_date });
+      db.prepare(`INSERT INTO tournaments (id, name, description, start_date, end_date, status) VALUES (?, ?, ?, ?, ?, 'active')`).run(id, name, description || null, start_date || null, end_date || null);
+      const created = db.prepare('SELECT * FROM tournaments WHERE id = ?').get(id);
+      res.json(created);
+    });
+
+    // Current tournament lookup (single record)
+    apiApp.get('/api/tournament/current', (req, res) => {
+      const row = db.prepare('SELECT * FROM tournaments LIMIT 1').get();
+      res.json(row || null);
+    });
+
+    apiApp.put('/api/tournaments', (req, res) => {
+      const { name, description, start_date, end_date } = req.body;
+      const row = db.prepare('SELECT * FROM tournaments LIMIT 1').get();
+      if (!row) return res.status(404).json({ error: 'No tournament exists yet' });
+      db.prepare(`UPDATE tournaments SET name = ?, description = ?, start_date = ?, end_date = ?, updated_at = datetime('now') WHERE id = ?`).run(name || row.name, description !== undefined ? description : row.description, start_date !== undefined ? start_date : row.start_date, end_date !== undefined ? end_date : row.end_date, row.id);
+      const updated = db.prepare('SELECT * FROM tournaments WHERE id = ?').get(row.id);
+      res.json(updated);
     });
 
     apiApp.get('/api/machines', (req, res) => {
@@ -307,7 +375,7 @@ function startApiServer() {
     });
 
     apiApp.post('/api/score', (req, res) => {
-      const { player_id, score, action = 'add' } = req.body;
+      const { player_id, score } = req.body;
       if (!player_id) return res.status(400).json({ error: 'player_id required' });
       if (typeof score !== 'number' || isNaN(score)) return res.status(400).json({ error: 'score must be a number' });
 
@@ -317,11 +385,7 @@ function startApiServer() {
       const activeSession = db.prepare(`SELECT * FROM game_sessions WHERE player_id = ? AND end_time IS NULL ORDER BY start_time DESC LIMIT 1`).get(player_id);
 
       if (activeSession) {
-        if (action === 'add') {
-          db.prepare(`UPDATE game_sessions SET score = score + ? WHERE id = ?`).run(score, activeSession.id);
-        } else {
-          db.prepare(`UPDATE game_sessions SET score = ? WHERE id = ?`).run(score, activeSession.id);
-        }
+        db.prepare(`UPDATE game_sessions SET score = score + ? WHERE id = ?`).run(score, activeSession.id);
         const updated = db.prepare(`SELECT score FROM game_sessions WHERE id = ?`).get(activeSession.id);
         return res.json({ ok: true, player_id, score: updated.score });
       }
