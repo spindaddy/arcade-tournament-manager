@@ -169,6 +169,26 @@ app.post('/api/players', (req, res) => {
   res.json({ id, name, email, phone, twitch_name });
 });
 
+// Update player
+app.put('/api/players/:id', (req, res) => {
+  const { name, email, phone, twitch_name } = req.body;
+  const player = db.prepare('SELECT * FROM players WHERE id = ?').get(req.params.id);
+  if (!player) return res.status(404).json({ error: 'Player not found' });
+  db.prepare(`UPDATE players SET name = ?, email = ?, phone = ?, twitch_name = ?, updated_at = datetime('now') WHERE id = ?`).run(name || player.name, email !== undefined ? email : player.email, phone !== undefined ? phone : player.phone, twitch_name !== undefined ? twitch_name : player.twitch_name, player.id);
+  res.json(db.prepare('SELECT * FROM players WHERE id = ?').get(player.id));
+});
+
+// Delete player
+app.delete('/api/players/:id', (req, res) => {
+  const player = db.prepare('SELECT * FROM players WHERE id = ?').get(req.params.id);
+  if (!player) return res.status(404).json({ error: 'Player not found' });
+  db.prepare(`DELETE FROM game_sessions WHERE player_id = ?`).run(player.id);
+  db.prepare(`DELETE FROM tournament_players WHERE player_id = ?`).run(player.id);
+  db.prepare(`DELETE FROM badges WHERE player_id = ?`).run(player.id);
+  db.prepare(`DELETE FROM players WHERE id = ?`).run(player.id);
+  res.json({ ok: true, id: player.id });
+});
+
 // Assign RFID badge to player
 app.post('/api/badges/assign', (req, res) => {
   const { player_id, rfid_uid } = req.body;
@@ -248,7 +268,7 @@ app.get('/api/machines', (req, res) => {
 
 // Register arcade machine
 app.post('/api/machines', (req, res) => {
-  const { name, reader_id, location } = req.body;
+  const { name, reader_id, location, is_active } = req.body;
 
   if (!name || !reader_id) {
     return res.status(400).json({ error: 'name and reader_id required' });
@@ -256,11 +276,29 @@ app.post('/api/machines', (req, res) => {
 
   const id = uuidv4();
   db.prepare(`
-    INSERT INTO arcade_machines (id, name, reader_id, location)
-    VALUES (?, ?, ?, ?)
-  `).run(id, name, reader_id, location || null);
+    INSERT INTO arcade_machines (id, name, reader_id, location, is_active)
+    VALUES (?, ?, ?, ?, ?)
+  `).run(id, name, reader_id, location || null, is_active !== undefined ? (is_active ? 1 : 0) : 1);
 
   res.json({ id, name, reader_id, location });
+});
+
+// Update arcade machine
+app.put('/api/machines/:id', (req, res) => {
+  const { name, reader_id, location, is_active } = req.body;
+  const machine = db.prepare('SELECT * FROM arcade_machines WHERE id = ?').get(req.params.id);
+  if (!machine) return res.status(404).json({ error: 'Machine not found' });
+  db.prepare(`UPDATE arcade_machines SET name = ?, reader_id = ?, location = ?, is_active = ? WHERE id = ?`).run(name || machine.name, reader_id || machine.reader_id, location !== undefined ? location : machine.location, is_active !== undefined ? (is_active ? 1 : 0) : machine.is_active, machine.id);
+  res.json(db.prepare('SELECT * FROM arcade_machines WHERE id = ?').get(machine.id));
+});
+
+// Delete arcade machine
+app.delete('/api/machines/:id', (req, res) => {
+  const machine = db.prepare('SELECT * FROM arcade_machines WHERE id = ?').get(req.params.id);
+  if (!machine) return res.status(404).json({ error: 'Machine not found' });
+  db.prepare(`UPDATE game_sessions SET machine_id = NULL WHERE machine_id = ?`).run(machine.id);
+  db.prepare(`DELETE FROM arcade_machines WHERE id = ?`).run(machine.id);
+  res.json({ ok: true, id: machine.id });
 });
 
 // Dashboard stats

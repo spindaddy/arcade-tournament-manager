@@ -3,7 +3,8 @@ import React, { useState, useEffect } from 'react';
 function Machines({ apiUrl }) {
   const [machines, setMachines] = useState([]);
   const [showModal, setShowModal] = useState(false);
-  const [formData, setFormData] = useState({ name: '', reader_id: '', location: '' });
+  const [editing, setEditing] = useState(null);
+  const [formData, setFormData] = useState({ name: '', reader_id: '', location: '', is_active: true });
 
   useEffect(() => {
     fetchMachines();
@@ -19,19 +20,56 @@ function Machines({ apiUrl }) {
     }
   };
 
+  const openCreate = () => {
+    setEditing(null);
+    setFormData({ name: '', reader_id: '', location: '', is_active: true });
+    setShowModal(true);
+  };
+
+  const openEdit = (machine) => {
+    setEditing(machine);
+    setFormData({
+      name: machine.name,
+      reader_id: machine.reader_id,
+      location: machine.location || '',
+      is_active: !!machine.is_active
+    });
+    setShowModal(true);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      await fetch(`${apiUrl}/machines`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
-      });
+      if (editing) {
+        await fetch(`${apiUrl}/machines/${editing.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(formData)
+        });
+      } else {
+        await fetch(`${apiUrl}/machines`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(formData)
+        });
+      }
       setShowModal(false);
-      setFormData({ name: '', reader_id: '', location: '' });
+      setEditing(null);
       fetchMachines();
     } catch (error) {
-      console.error('Failed to create machine:', error);
+      console.error('Failed to save machine:', error);
+    }
+  };
+
+  const handleDelete = async (machine) => {
+    if (!confirm(`Delete machine "${machine.name}"? This cannot be undone.`)) return;
+    try {
+      await fetch(`${apiUrl}/machines/${machine.id}`, {
+        method: 'DELETE'
+      });
+      fetchMachines();
+    } catch (error) {
+      console.error('Failed to delete machine:', error);
     }
   };
 
@@ -45,7 +83,7 @@ function Machines({ apiUrl }) {
       <div className="card">
         <div className="card-header">
           <h2 className="card-title">Machines</h2>
-          <button className="btn btn-primary" onClick={() => setShowModal(true)}>
+          <button className="btn btn-primary" onClick={openCreate}>
             + Add Machine
           </button>
         </div>
@@ -62,6 +100,7 @@ function Machines({ apiUrl }) {
                 <th>Reader ID</th>
                 <th>Location</th>
                 <th>Status</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -79,6 +118,14 @@ function Machines({ apiUrl }) {
                       <span className="badge badge-warning">Inactive</span>
                     )}
                   </td>
+                  <td>
+                    <button className="btn btn-secondary btn-sm" onClick={() => openEdit(machine)} style={{ marginRight: '8px' }}>
+                      Edit
+                    </button>
+                    <button className="btn btn-secondary btn-sm" onClick={() => handleDelete(machine)}>
+                      Delete
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -89,7 +136,7 @@ function Machines({ apiUrl }) {
       {showModal && (
         <div className="modal-overlay" onClick={() => setShowModal(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <h2>Add Arcade Machine</h2>
+            <h2>{editing ? 'Edit Arcade Machine' : 'Add Arcade Machine'}</h2>
             <form onSubmit={handleSubmit}>
               <div className="form-group">
                 <label>Machine Name *</label>
@@ -123,12 +170,22 @@ function Machines({ apiUrl }) {
                   onChange={(e) => setFormData({ ...formData, location: e.target.value })}
                 />
               </div>
+              <div className="form-group">
+                <label>Status</label>
+                <select
+                  value={formData.is_active ? 'active' : 'inactive'}
+                  onChange={(e) => setFormData({ ...formData, is_active: e.target.value === 'active' })}
+                >
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive</option>
+                </select>
+              </div>
               <div className="modal-actions">
                 <button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)}>
                   Cancel
                 </button>
                 <button type="submit" className="btn btn-primary">
-                  Add Machine
+                  {editing ? 'Save Changes' : 'Add Machine'}
                 </button>
               </div>
             </form>

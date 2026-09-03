@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 function Players({ apiUrl }) {
   const [players, setPlayers] = useState([]);
   const [showModal, setShowModal] = useState(false);
+  const [editing, setEditing] = useState(null);
   const [showBadgeModal, setShowBadgeModal] = useState(false);
   const [selectedPlayer, setSelectedPlayer] = useState(null);
   const [formData, setFormData] = useState({ name: '', email: '', phone: '', twitch_name: '' });
@@ -22,19 +23,57 @@ function Players({ apiUrl }) {
     }
   };
 
+  const openCreate = () => {
+    setEditing(null);
+    setFormData({ name: '', email: '', phone: '', twitch_name: '' });
+    setShowModal(true);
+  };
+
+  const openEdit = (player) => {
+    setEditing(player);
+    setFormData({
+      name: player.name,
+      email: player.email || '',
+      phone: player.phone || '',
+      twitch_name: player.twitch_name || ''
+    });
+    setShowModal(true);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      await fetch(`${apiUrl}/players`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
-      });
+      if (editing) {
+        await fetch(`${apiUrl}/players/${editing.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(formData)
+        });
+      } else {
+        await fetch(`${apiUrl}/players`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(formData)
+        });
+      }
       setShowModal(false);
+      setEditing(null);
       setFormData({ name: '', email: '', phone: '', twitch_name: '' });
       fetchPlayers();
     } catch (error) {
-      console.error('Failed to create player:', error);
+      console.error('Failed to save player:', error);
+    }
+  };
+
+  const handleDelete = async (player) => {
+    if (!confirm(`Delete player "${player.name}"? This will remove their scores and badge.`)) return;
+    try {
+      await fetch(`${apiUrl}/players/${player.id}`, {
+        method: 'DELETE'
+      });
+      fetchPlayers();
+    } catch (error) {
+      console.error('Failed to delete player:', error);
     }
   };
 
@@ -74,7 +113,7 @@ function Players({ apiUrl }) {
       <div className="card">
         <div className="card-header">
           <h2 className="card-title">Registered Players</h2>
-          <button className="btn btn-primary" onClick={() => setShowModal(true)}>
+          <button className="btn btn-primary" onClick={openCreate}>
             + Add Player
           </button>
         </div>
@@ -85,24 +124,24 @@ function Players({ apiUrl }) {
           </div>
         ) : (
           <table className="table">
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Email</th>
-                  <th>Phone</th>
-                  <th>Twitch</th>
-                  <th>RFID Badge</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {players.map((player) => (
-                  <tr key={player.id}>
-                    <td>{player.name}</td>
-                    <td>{player.email || '-'}</td>
-                    <td>{player.phone || '-'}</td>
-                    <td>{player.twitch_name ? `@${player.twitch_name}` : '-'}</td>
-                    <td>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Phone</th>
+                <th>Twitch</th>
+                <th>RFID Badge</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {players.map((player) => (
+                <tr key={player.id}>
+                  <td>{player.name}</td>
+                  <td>{player.email || '-'}</td>
+                  <td>{player.phone || '-'}</td>
+                  <td>{player.twitch_name ? `@${player.twitch_name}` : '-'}</td>
+                  <td>
                     {player.rfid_uid ? (
                       <span className="badge badge-success">{player.rfid_uid}</span>
                     ) : (
@@ -110,9 +149,13 @@ function Players({ apiUrl }) {
                     )}
                   </td>
                   <td>
+                    <button className="btn btn-secondary btn-sm" onClick={() => openEdit(player)} style={{ marginRight: '8px' }}>
+                      Edit
+                    </button>
                     {!player.rfid_uid && (
                       <button
-                        className="btn btn-secondary"
+                        className="btn btn-secondary btn-sm"
+                        style={{ marginRight: '8px' }}
                         onClick={() => {
                           setSelectedPlayer(player);
                           setShowBadgeModal(true);
@@ -121,6 +164,9 @@ function Players({ apiUrl }) {
                         Assign Badge
                       </button>
                     )}
+                    <button className="btn btn-secondary btn-sm" onClick={() => handleDelete(player)}>
+                      Delete
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -132,7 +178,7 @@ function Players({ apiUrl }) {
       {showModal && (
         <div className="modal-overlay" onClick={() => setShowModal(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <h2>Register Player</h2>
+            <h2>{editing ? 'Edit Player' : 'Register Player'}</h2>
             <form onSubmit={handleSubmit}>
               <div className="form-group">
                 <label>Name *</label>
@@ -173,7 +219,7 @@ function Players({ apiUrl }) {
                   Cancel
                 </button>
                 <button type="submit" className="btn btn-primary">
-                  Register
+                  {editing ? 'Save Changes' : 'Register'}
                 </button>
               </div>
             </form>
