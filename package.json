@@ -12,7 +12,13 @@
     "build:mac": "electron-builder --mac",
     "build:linux": "electron-builder --linux"
   },
-  "keywords": ["arcade", "tournament", "rfid", "electron", "esp32"],
+  "keywords": [
+    "arcade",
+    "tournament",
+    "rfid",
+    "electron",
+    "esp32"
+  ],
   "author": "",
   "license": "MIT",
   "dependencies": {
@@ -25,7 +31,7 @@
   "devDependencies": {
     "@vitejs/plugin-react": "^4.2.0",
     "concurrently": "^8.2.0",
-    "electron": "^28.0.0",
+    "electron": "^35.7.5",
     "electron-builder": "^24.9.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
@@ -49,6 +55,11 @@
     },
     "win": {
       "target": "nsis"
+    }
+  },
+  "overrides": {
+    "electron": {
+      "install": "true"
     }
   }
 }

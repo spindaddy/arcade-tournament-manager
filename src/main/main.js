@@ -1,5 +1,8 @@
 const { app, BrowserWindow, ipcMain } = require('electron');
+
+app.disableHardwareAcceleration();
 const path = require('path');
+const fs = require('fs');
 const Store = require('electron-store');
 
 const store = new Store();
@@ -21,11 +24,13 @@ function createWindow() {
     backgroundColor: '#1a1a2e'
   });
 
-  if (process.env.NODE_ENV === 'development') {
+  const isDev = process.env.NODE_ENV === 'development' || !fs.existsSync(path.join(__dirname, '../../dist/renderer/index.html'));
+
+  if (isDev) {
     mainWindow.loadURL('http://localhost:5173');
     mainWindow.webContents.openDevTools();
   } else {
-    mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
+    mainWindow.loadFile(path.join(__dirname, '../../dist/renderer/index.html'));
   }
 }
 
