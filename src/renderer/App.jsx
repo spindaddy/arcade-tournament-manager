@@ -6,6 +6,7 @@ import Tournaments from './components/Tournaments';
 import Machines from './components/Machines';
 import ActiveSessions from './components/ActiveSessions';
 import InstallGuide from './components/InstallGuide';
+import Scoreboard from './components/Scoreboard';
 
 const API_URL = 'http://localhost:3001/api';
 
@@ -50,6 +51,9 @@ function App() {
               <NavLink to="/machines">Machines</NavLink>
             </li>
             <li>
+              <NavLink to="/scoreboard">Scoreboard</NavLink>
+            </li>
+            <li>
               <NavLink to="/active">Active Sessions</NavLink>
             </li>
             <li>
@@ -75,6 +79,7 @@ function App() {
             <Route path="/players" element={<Players apiUrl={API_URL} />} />
             <Route path="/tournaments" element={<Tournaments apiUrl={API_URL} />} />
             <Route path="/machines" element={<Machines apiUrl={API_URL} />} />
+            <Route path="/scoreboard" element={<Scoreboard apiUrl={API_URL} />} />
             <Route path="/active" element={<ActiveSessions apiUrl={API_URL} />} />
             <Route path="/guide" element={<InstallGuide />} />
           </Routes>

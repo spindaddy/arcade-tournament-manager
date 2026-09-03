@@ -228,6 +228,52 @@ app.get('/api/stats', (req, res) => {
   });
 });
 
+// Scoreboard - rank players by total score
+app.get('/api/scoreboard', (req, res) => {
+  const rows = db.prepare(`
+    SELECT
+      p.id AS player_id,
+      p.name AS player_name,
+      COALESCE(SUM(gs.score), 0) AS total_score,
+      COUNT(DISTINCT CASE WHEN gs.end_time IS NOT NULL THEN gs.id END) AS games_played,
+      MAX(gs.score) AS best_score,
+      COUNT(CASE WHEN gs.end_time IS NULL THEN 1 END) AS currently_playing
+    FROM players p
+    LEFT JOIN game_sessions gs ON gs.player_id = p.id
+    GROUP BY p.id
+    ORDER BY total_score DESC, best_score DESC
+  `).all();
+
+  const ranked = rows.map((row, index) => ({ rank: index + 1, ...row }));
+  res.json(ranked);
+});
+
+// Add or set a player's score (current session or new)
+app.post('/api/score', (req, res) => {
+  const { player_id, score, action = 'add' } = req.body;
+  if (!player_id) return res.status(400).json({ error: 'player_id required' });
+  if (typeof score !== 'number' || isNaN(score)) return res.status(400).json({ error: 'score must be a number' });
+
+  const player = db.prepare('SELECT id FROM players WHERE id = ?').get(player_id);
+  if (!player) return res.status(404).json({ error: 'Player not found' });
+
+  const activeSession = db.prepare(`SELECT * FROM game_sessions WHERE player_id = ? AND end_time IS NULL ORDER BY start_time DESC LIMIT 1`).get(player_id);
+
+  if (activeSession) {
+    if (action === 'add') {
+      db.prepare(`UPDATE game_sessions SET score = score + ? WHERE id = ?`).run(score, activeSession.id);
+    } else {
+      db.prepare(`UPDATE game_sessions SET score = ? WHERE id = ?`).run(score, activeSession.id);
+    }
+    const updated = db.prepare(`SELECT score FROM game_sessions WHERE id = ?`).get(activeSession.id);
+    return res.json({ ok: true, player_id, score: updated.score });
+  }
+
+  const sessionId = uuidv4();
+  db.prepare(`INSERT INTO game_sessions (id, player_id, score, start_time) VALUES (?, ?, ?, datetime('now'))`).run(sessionId, player_id, score);
+  res.json({ ok: true, player_id, score });
+});
+
 app.listen(PORT, () => {
   console.log(`API server running on http://localhost:${PORT}`);
 });

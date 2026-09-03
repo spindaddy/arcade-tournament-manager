@@ -201,6 +201,11 @@ body {
   background: var(--border);
 }
 
+.btn-sm {
+  padding: 6px 12px;
+  font-size: 12px;
+}
+
 .form-group {
   margin-bottom: 16px;
 }
@@ -480,4 +485,101 @@ body {
   padding: 16px 20px;
   margin-bottom: 12px;
   border-left: 3px solid var(--accent);
+}
+
+.podium {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 32px;
+  padding: 32px 24px 0;
+}
+
+.podium-spot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 180px;
+}
+
+.podium-medal {
+  font-size: 36px;
+  margin-bottom: 8px;
+}
+
+.podium-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+  text-align: center;
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 180px;
+}
+
+.podium-score {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--accent);
+  margin-bottom: 8px;
+}
+
+.podium-bar {
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 12px;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 18px;
+  font-weight: 700;
+  border-radius: 8px 8px 0 0;
+}
+
+.bar-first {
+  height: 140px;
+  background: linear-gradient(180deg, #ffd700, #b8860b);
+}
+
+.bar-second {
+  height: 100px;
+  background: linear-gradient(180deg, #c0c0c0, #808080);
+}
+
+.bar-third {
+  height: 80px;
+  background: linear-gradient(180deg, #cd7f32, #8b4513);
+}
+
+.podium-first {
+  order: 2;
+}
+
+.podium-second {
+  order: 1;
+}
+
+.podium-third {
+  order: 3;
+}
+
+.rank-top td {
+  background: rgba(233, 69, 96, 0.06);
+}
+
+.rank-cell {
+  font-weight: 700;
+}
+
+.rank-number {
+  margin-right: 6px;
+}
+
+.score-total {
+  font-weight: 700;
+  color: var(--accent);
+  font-size: 16px;
 }

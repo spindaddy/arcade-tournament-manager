@@ -77,7 +77,7 @@ function initializeDatabase() {
     CREATE TABLE IF NOT EXISTS game_sessions (
       id TEXT PRIMARY KEY,
       player_id TEXT NOT NULL,
-      machine_id TEXT NOT NULL,
+      machine_id TEXT,
       tournament_id TEXT,
       start_time DATETIME DEFAULT CURRENT_TIMESTAMP,
       end_time DATETIME,
@@ -87,6 +87,33 @@ function initializeDatabase() {
       FOREIGN KEY (tournament_id) REFERENCES tournaments(id)
     );
   `);
+
+  // Migration: ensure machine_id is nullable on game_sessions
+  try {
+    const cols = db.prepare(`PRAGMA table_info(game_sessions)`).all();
+    const machineCol = cols.find(c => c.name === 'machine_id');
+    if (machineCol && machineCol.notnull === 1) {
+      db.exec(`ALTER TABLE game_sessions RENAME TO game_sessions_old;`);
+      db.exec(`
+        CREATE TABLE game_sessions (
+          id TEXT PRIMARY KEY,
+          player_id TEXT NOT NULL,
+          machine_id TEXT,
+          tournament_id TEXT,
+          start_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+          end_time DATETIME,
+          score INTEGER DEFAULT 0,
+          FOREIGN KEY (player_id) REFERENCES players(id),
+          FOREIGN KEY (machine_id) REFERENCES arcade_machines(id),
+          FOREIGN KEY (tournament_id) REFERENCES tournaments(id)
+        );
+      `);
+      db.exec(`INSERT INTO game_sessions (id, player_id, machine_id, tournament_id, start_time, end_time, score) SELECT id, player_id, machine_id, tournament_id, start_time, end_time, score FROM game_sessions_old;`);
+      db.exec(`DROP TABLE game_sessions_old;`);
+    }
+  } catch (migrationError) {
+    console.error('game_sessions migration skipped:', migrationError.message);
+  }
 }
 
 module.exports = { getDatabase };
