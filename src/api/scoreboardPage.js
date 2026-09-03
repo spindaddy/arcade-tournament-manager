@@ -58,9 +58,10 @@ function scoreboardPageHtml() {
   <title>Arcade Tournament Scoreboard</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; min-height: 100vh; display: flex; flex-direction: column; padding: 24px; transition: background .3s, color .3s; }
-    header { text-align: center; padding: 8px 0 20px; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 24px; transition: background .3s, color .3s; }
+    header { text-align: center; padding: 8px 0 20px; width: 100%; }
     header h1 { font-size: 2.2rem; letter-spacing: 2px; text-transform: uppercase; }
+    #board { width: 60%; }
     table { width: 100%; border-collapse: collapse; border-radius: 12px; overflow: hidden; box-shadow: 0 10px 40px rgba(0,0,0,.4); }
     thead th { font-size: 1.1rem; letter-spacing: 1px; text-transform: uppercase; padding: 16px 12px; text-align: left; }
     tbody td { padding: 18px 12px; font-size: 1.35rem; }
