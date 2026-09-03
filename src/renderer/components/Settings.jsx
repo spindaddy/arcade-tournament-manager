@@ -64,7 +64,7 @@ function Settings({ apiUrl, currentTheme, onThemeChange }) {
   const addDivision = () => {
     setDivisions((prev) => {
       const maxOrder = prev.reduce((m, d) => Math.max(m, d.sort_order || 0), 0);
-      return [...prev, { name: '', active: true, sort_order: maxOrder + 1 }];
+      return [...prev, { name: '', active: true, sort_order: maxOrder + 1, max: 5 }];
     });
   };
 
@@ -131,8 +131,8 @@ function Settings({ apiUrl, currentTheme, onThemeChange }) {
           {savedDivisions && <span className="badge badge-success">Saved ✓</span>}
         </div>
         <p style={{ color: 'var(--text-secondary)', marginBottom: '16px' }}>
-          Configure divisions shown on the scoreboard. Inactive divisions are hidden on the web page;
-          grids are ordered by sort order.
+          Configure divisions shown on the scoreboard. Inactive divisions are hidden; grids are ordered
+          by sort order, and "Max Scores" limits how many players are shown per division on the scoreboard.
         </p>
         <form onSubmit={saveDivisions}>
           <table className="table">
@@ -141,6 +141,7 @@ function Settings({ apiUrl, currentTheme, onThemeChange }) {
                 <th style={{ width: '40px' }}></th>
                 <th>Division</th>
                 <th style={{ width: '90px' }}>Sort</th>
+                <th style={{ width: '130px' }}>Max Scores</th>
                 <th style={{ width: '90px' }}>Active</th>
                 <th style={{ width: '70px' }}></th>
               </tr>
@@ -168,6 +169,15 @@ function Settings({ apiUrl, currentTheme, onThemeChange }) {
                   </td>
                   <td>
                     <input
+                      type="number"
+                      min="0"
+                      value={div.max == null ? 0 : div.max}
+                      onChange={(e) => updateDivision(index, 'max', parseInt(e.target.value || '0', 10))}
+                      style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '6px', color: 'var(--text-primary)', padding: '8px 10px', width: '100%' }}
+                    />
+                  </td>
+                  <td>
+                    <input
                       type="checkbox"
                       checked={div.active}
                       onChange={(e) => updateDivision(index, 'active', e.target.checked)}
@@ -182,7 +192,7 @@ function Settings({ apiUrl, currentTheme, onThemeChange }) {
               ))}
               {divisions.length === 0 && (
                 <tr>
-                  <td colSpan={5} style={{ color: 'var(--text-secondary)', textAlign: 'center' }}>
+                  <td colSpan={6} style={{ color: 'var(--text-secondary)', textAlign: 'center' }}>
                     No divisions defined.
                   </td>
                 </tr>
@@ -212,7 +222,7 @@ function normalizeDivisions(value) {
         if (typeof d === 'string') {
           return { name: d, active: true, sort_order: 0 };
         }
-        return { name: d.name || '', active: d.active !== false, sort_order: d.sort_order || 0 };
+        return { name: d.name || '', active: d.active !== false, sort_order: d.sort_order || 0, max: d.max == null ? 0 : d.max };
       });
     }
   } catch (e) {

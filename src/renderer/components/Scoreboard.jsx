@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 
 function Scoreboard({ apiUrl, title }) {
   const [entries, setEntries] = useState([]);
@@ -87,9 +88,14 @@ function Scoreboard({ apiUrl, title }) {
         <div className="card">
           <div className="card-header">
             <h2 className="card-title">Standings</h2>
-            <button className="btn btn-secondary" onClick={fetchScoreboard}>
-              Refresh
-            </button>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <Link to="/divisions" className="btn btn-secondary">
+                View by Division
+              </Link>
+              <button className="btn btn-secondary" onClick={fetchScoreboard}>
+                Refresh
+              </button>
+            </div>
           </div>
           <table className="table">
             <thead>

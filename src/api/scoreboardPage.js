@@ -152,7 +152,8 @@ function scoreboardPageHtml() {
         var html = keys.map(function (division) {
           var rank = 0;
           var lastScore = null;
-          var rows = groups[division].map(function (e) {
+          var max = (divConfig[division] && divConfig[division].max) || 0;
+          var rows = groups[division].slice(0, max || groups[division].length).map(function (e) {
             if (e.total_score !== lastScore) { rank++; lastScore = e.total_score; }
             var cls = rank === 1 ? 'row-first' : (rank === 2 ? 'row-second' : (rank === 3 ? 'row-third' : ''));
             var status = Number(e.currently_playing) > 0

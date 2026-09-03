@@ -332,6 +332,11 @@ body {
   color: var(--accent);
 }
 
+.badge-secondary {
+  background: rgba(148, 163, 184, 0.2);
+  color: var(--text-secondary);
+}
+
 .modal-overlay {
   position: fixed;
   top: 0;
