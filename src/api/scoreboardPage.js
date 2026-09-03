@@ -45,6 +45,34 @@ function scoreboardPageHtml() {
       titleStart: '#8ee06e', titleEnd: '#c8e069', score: '#a9f07d',
       row1: 'rgba(142,224,110,.10)', row2: 'rgba(120,160,110,.10)', row3: 'rgba(200,224,105,.08)',
       playing: '#7ceb9a'
+    },
+    ocean: {
+      bg: '#0c2430', panel: '#0e3347', header: '#10425f', border: '#1e4a63',
+      text: '#eaf6ff', muted: '#9bc4d9', idle: '#7fa6bd',
+      titleStart: '#38bdf8', titleEnd: '#34d399', score: '#7dd3fc',
+      row1: 'rgba(56,189,248,.10)', row2: 'rgba(90,170,220,.10)', row3: 'rgba(52,211,153,.08)',
+      playing: '#34d399'
+    },
+    sunset: {
+      bg: '#2b1a2e', panel: '#3a2138', header: '#4d2b3d', border: '#5a3450',
+      text: '#fff2ec', muted: '#d3a9a0', idle: '#b48e86',
+      titleStart: '#ff8a5c', titleEnd: '#f9a8d4', score: '#ffab7e',
+      row1: 'rgba(255,138,92,.10)', row2: 'rgba(220,150,130,.10)', row3: 'rgba(249,168,212,.08)',
+      playing: '#6ee7b7'
+    },
+    midnight: {
+      bg: '#0d1024', panel: '#151a38', header: '#1e2550', border: '#2a3264',
+      text: '#eef0ff', muted: '#a5adcf', idle: '#858db6',
+      titleStart: '#a78bfa', titleEnd: '#60a5fa', score: '#c4b5fd',
+      row1: 'rgba(167,139,250,.10)', row2: 'rgba(120,140,230,.10)', row3: 'rgba(96,165,250,.08)',
+      playing: '#34d399'
+    },
+    candy: {
+      bg: '#2a1533', panel: '#3a1d46', header: '#4c2658', border: '#5c3366',
+      text: '#fff3f8', muted: '#d8b0c8', idle: '#ba92ae',
+      titleStart: '#f9a8d4', titleEnd: '#fbbf24', score: '#fbcfe8',
+      row1: 'rgba(249,168,212,.10)', row2: 'rgba(220,150,190,.10)', row3: 'rgba(251,191,36,.08)',
+      playing: '#8ee7b0'
     }
   };
 

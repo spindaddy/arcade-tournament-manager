@@ -4,7 +4,11 @@ const THEMES = [
   { id: 'dark', name: 'Dark', swatch: ['#1a1a2e', '#e94560'] },
   { id: 'light', name: 'Light', swatch: ['#f4f5f7', '#e94560'] },
   { id: 'neon', name: 'Neon', swatch: ['#0b0f1a', '#00f5ff'] },
-  { id: 'forest', name: 'Forest', swatch: ['#10150f', '#8ee06e'] }
+  { id: 'forest', name: 'Forest', swatch: ['#10150f', '#8ee06e'] },
+  { id: 'ocean', name: 'Ocean', swatch: ['#0c2430', '#38bdf8'] },
+  { id: 'sunset', name: 'Sunset', swatch: ['#2b1a2e', '#ff8a5c'] },
+  { id: 'midnight', name: 'Midnight', swatch: ['#0d1024', '#a78bfa'] },
+  { id: 'candy', name: 'Candy', swatch: ['#2a1533', '#f9a8d4'] }
 ];
 
 function Settings({ apiUrl, currentTheme, onThemeChange, onDivisionsChange }) {
