@@ -328,6 +328,7 @@ app.get('/api/scoreboard', (req, res) => {
           p.id AS player_id,
           p.name AS player_name,
           p.twitch_name AS twitch_name,
+          p.division AS division,
           COALESCE(SUM(gs.score), 0) AS total_score,
       COUNT(DISTINCT CASE WHEN gs.end_time IS NOT NULL THEN gs.id END) AS games_played,
       MAX(gs.score) AS best_score,

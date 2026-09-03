@@ -71,6 +71,8 @@ function scoreboardPageHtml() {
     .player-link { color: inherit; text-decoration: underline; }
     .score { width: 14%; font-weight: 800; font-variant-numeric: tabular-nums; }
     .status { width: 18%; }
+    .division-grid { margin-bottom: 32px; }
+    .division-title { font-size: 1.5rem; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; margin: 0 0 12px; }
     .playing { font-weight: 600; }
     .fade { transition: background-color .3s; }
     .updated { margin-top: 14px; text-align: center; font-size: .9rem; }
@@ -95,6 +97,7 @@ function scoreboardPageHtml() {
         "thead th { background:" + t.header + "; color:" + t.muted + "; }" +
         "tbody td { border-top:1px solid " + t.border + "; }" +
         ".score { color:" + t.score + "; }" +
+        ".division-title { color:" + t.score + "; }" +
         ".twitch a { color:" + t.score + "; text-decoration: underline; }" +
         ".idle { color:" + t.idle + "; }" +
         ".playing { color:" + t.playing + "; }" +
@@ -121,26 +124,45 @@ function scoreboardPageHtml() {
       if (!data || data.length === 0) {
         board.innerHTML = '<table><tbody><tr><td class="empty">No scores yet</td></tr></tbody></table>';
       } else {
-        var rows = data.map(function (e) {
-          var cls = e.rank === 1 ? 'row-first' : (e.rank === 2 ? 'row-second' : (e.rank === 3 ? 'row-third' : ''));
-          var status = Number(e.currently_playing) > 0
-            ? '<span class="playing">● Playing</span>'
-            : '<span class="idle">Idle</span>';
-          var twitchCell = e.twitch_name
-            ? '<a class="player-link" href="https://twitch.tv/' + encodeURIComponent(e.twitch_name) + '" target="_blank">' + escapeHtml(e.twitch_name) + '</a>'
-            : '<span class="idle">—</span>';
-          return '<tr class="fade ' + cls + '">' +
-            '<td class="rank">' + e.rank + ' ' + (medals[e.rank] || '') + '</td>' +
-            '<td class="player">' + escapeHtml(e.player_name) + '</td>' +
-            '<td class="twitch">' + twitchCell + '</td>' +
-            '<td class="score">' + (Number(e.total_score) || 0).toLocaleString() + '</td>' +
-            '<td class="status">' + status + '</td>' +
-            '</tr>';
+        var groups = {};
+        data.forEach(function (e) {
+          var key = e.division || 'Open';
+          if (!groups[key]) groups[key] = [];
+          groups[key].push(e);
+        });
+        var groupKeys = Object.keys(groups);
+
+        var html = groupKeys.map(function (division) {
+          var rank = 0;
+          var lastScore = null;
+          var rows = groups[division].map(function (e) {
+            if (e.total_score !== lastScore) { rank++; lastScore = e.total_score; }
+            var cls = rank === 1 ? 'row-first' : (rank === 2 ? 'row-second' : (rank === 3 ? 'row-third' : ''));
+            var status = Number(e.currently_playing) > 0
+              ? '<span class="playing">● Playing</span>'
+              : '<span class="idle">Idle</span>';
+            var twitchCell = e.twitch_name
+              ? '<a class="player-link" href="https://twitch.tv/' + encodeURIComponent(e.twitch_name) + '" target="_blank">' + escapeHtml(e.twitch_name) + '</a>'
+              : '<span class="idle">—</span>';
+            return '<tr class="fade ' + cls + '">' +
+              '<td class="rank">' + rank + ' ' + (medals[rank] || '') + '</td>' +
+              '<td class="player">' + escapeHtml(e.player_name) + '</td>' +
+              '<td class="twitch">' + twitchCell + '</td>' +
+              '<td class="score">' + (Number(e.total_score) || 0).toLocaleString() + '</td>' +
+              '<td class="status">' + status + '</td>' +
+              '</tr>';
+          }).join('');
+
+          return '<div class="division-grid">' +
+            '<div class="division-title">' + escapeHtml(division) + '</div>' +
+            '<table><thead><tr>' +
+            '<th class="rank">Rank</th><th class="player">Player</th>' +
+            '<th class="twitch">Twitch</th><th class="score">Score</th><th class="status">Status</th>' +
+            '</tr></thead><tbody>' + rows + '</tbody></table>' +
+            '</div>';
         }).join('');
-        board.innerHTML = '<table><thead><tr>' +
-          '<th class="rank">Rank</th><th class="player">Player</th>' +
-          '<th class="twitch">Twitch</th><th class="score">Score</th><th class="status">Status</th>' +
-          '</tr></thead><tbody>' + rows + '</tbody></table>';
+
+        board.innerHTML = html;
       }
       document.getElementById('updated').textContent = 'Updated ' + new Date().toLocaleTimeString();
     }
