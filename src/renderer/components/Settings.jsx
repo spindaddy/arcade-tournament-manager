@@ -7,7 +7,7 @@ const THEMES = [
   { id: 'forest', name: 'Forest', swatch: ['#10150f', '#8ee06e'] }
 ];
 
-function Settings({ apiUrl, currentTheme, onThemeChange }) {
+function Settings({ apiUrl, currentTheme, onThemeChange, onDivisionsChange }) {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [divisions, setDivisions] = useState([]);
@@ -55,6 +55,7 @@ function Settings({ apiUrl, currentTheme, onThemeChange }) {
       if (response.ok) {
         setSavedDivisions(true);
         setTimeout(() => setSavedDivisions(false), 3000);
+        if (onDivisionsChange) onDivisionsChange();
       }
     } catch (error) {
       console.error('Failed to save divisions:', error);

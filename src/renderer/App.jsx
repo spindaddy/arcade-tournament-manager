@@ -143,7 +143,7 @@ function App() {
               />
             ))}
             <Route path="/active" element={<ActiveSessions apiUrl={API_URL} />} />
-            <Route path="/settings" element={<Settings apiUrl={API_URL} currentTheme={theme} onThemeChange={setTheme} />} />
+            <Route path="/settings" element={<Settings apiUrl={API_URL} currentTheme={theme} onThemeChange={setTheme} onDivisionsChange={fetchDivisions} />} />
             <Route path="/guide" element={<InstallGuide />} />
           </Routes>
         </main>
