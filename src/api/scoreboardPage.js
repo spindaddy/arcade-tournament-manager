@@ -48,10 +48,6 @@ function scoreboardPageHtml() {
     }
   };
 
-  const themeOptions = Object.keys(THEMES).map(n =>
-    `<option value="${n}">${n.charAt(0).toUpperCase() + n.slice(1)}</option>`
-  ).join('');
-
   const themesLiteral = JSON.stringify(THEMES);
 
   return `<!DOCTYPE html>
@@ -65,9 +61,6 @@ function scoreboardPageHtml() {
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; min-height: 100vh; display: flex; flex-direction: column; padding: 24px; transition: background .3s, color .3s; }
     header { text-align: center; padding: 8px 0 20px; }
     header h1 { font-size: 2.2rem; letter-spacing: 2px; text-transform: uppercase; }
-    .toolbar { position: fixed; top: 16px; right: 16px; display: flex; align-items: center; gap: 8px; z-index: 10; }
-    .toolbar select { background: rgba(127,127,127,.15); color: inherit; border: 1px solid currentColor; border-radius: 6px; padding: 6px 10px; font-size: 13px; }
-    .toolbar a { color: inherit; opacity: .8; text-decoration: none; font-size: 13px; }
     table { width: 100%; border-collapse: collapse; border-radius: 12px; overflow: hidden; box-shadow: 0 10px 40px rgba(0,0,0,.4); }
     thead th { font-size: 1.1rem; letter-spacing: 1px; text-transform: uppercase; padding: 16px 12px; text-align: left; }
     tbody td { padding: 18px 12px; font-size: 1.35rem; }
@@ -83,10 +76,6 @@ function scoreboardPageHtml() {
   <style id="themeStyle"></style>
 </head>
 <body>
-  <div class="toolbar">
-    <select id="themePicker" aria-label="Color theme">${themeOptions}</select>
-    <a href="/api/scoreboard" target="_blank" title="Scoreboard JSON">JSON</a>
-  </div>
   <header><h1 id="title">Arcade Tournament</h1></header>
   <div id="board"></div>
   <div class="updated" id="updated"></div>
@@ -115,8 +104,6 @@ function scoreboardPageHtml() {
     function applyTheme(name) {
       currentTheme = THEMES[name] ? name : 'dark';
       document.getElementById('themeStyle').textContent = cssFor(THEMES[currentTheme]);
-      try { localStorage.setItem('scoreboard-theme', currentTheme); } catch (e) {}
-      document.getElementById('themePicker').value = currentTheme;
     }
 
     function escapeHtml(str) {
@@ -170,11 +157,7 @@ function scoreboardPageHtml() {
         .catch(function () {});
     }
 
-    document.getElementById('themePicker').addEventListener('change', function (e) { applyTheme(e.target.value); });
-
-    var saved = null;
-    try { saved = localStorage.getItem('scoreboard-theme'); } catch (e) {}
-    if (saved) { applyTheme(saved); } else { loadMeta(); }
+    loadMeta();
 
     load();
     setInterval(load, 5000);
