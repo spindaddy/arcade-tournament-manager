@@ -315,7 +315,7 @@ app.post('/api/score', (req, res) => {
   const activeSession = db.prepare(`SELECT * FROM game_sessions WHERE player_id = ? AND end_time IS NULL ORDER BY start_time DESC LIMIT 1`).get(player_id);
 
   if (activeSession) {
-    db.prepare(`UPDATE game_sessions SET score = score + ? WHERE id = ?`).run(score, activeSession.id);
+    db.prepare(`UPDATE game_sessions SET score = ? WHERE id = ?`).run(score, activeSession.id);
     const updated = db.prepare(`SELECT score FROM game_sessions WHERE id = ?`).get(activeSession.id);
     return res.json({ ok: true, player_id, score: updated.score });
   }

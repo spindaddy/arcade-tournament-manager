@@ -73,7 +73,7 @@ function Scoreboard({ apiUrl, title }) {
     <div>
       <div className="page-header">
         <h1>Scoreboard</h1>
-        <p>{title} — click "+ Add Score" to update a player's score</p>
+        <p>{title} — click "Set Score" to update a player's score</p>
       </div>
 
       {entries.length === 0 ? (
@@ -119,7 +119,7 @@ function Scoreboard({ apiUrl, title }) {
                   </td>
                   <td>
                     <button className="btn btn-secondary btn-sm" onClick={() => openEditor(entry)}>
-                      + Add Score
+                      Set Score
                     </button>
                   </td>
                 </tr>
@@ -138,7 +138,7 @@ function Scoreboard({ apiUrl, title }) {
             </p>
             <form onSubmit={submitScore}>
               <div className="form-group">
-                <label>Score to Add</label>
+                <label>Score</label>
                 <input
                   type="number"
                   min="0"
