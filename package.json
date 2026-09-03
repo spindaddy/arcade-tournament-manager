@@ -1,0 +1,54 @@
+{
+  "name": "arcade-tournament-manager",
+  "version": "1.0.0",
+  "description": "Electron app for managing arcade tournaments with RFID badge tracking",
+  "main": "src/main/main.js",
+  "scripts": {
+    "start": "concurrently \"npm run dev:api\" \"wait-on http://localhost:3001 && electron .\"",
+    "dev": "concurrently \"npm run dev:api\" \"wait-on http://localhost:3001 && electron .\"",
+    "dev:api": "node src/api/server.js",
+    "build": "electron-builder",
+    "build:win": "electron-builder --win",
+    "build:mac": "electron-builder --mac",
+    "build:linux": "electron-builder --linux"
+  },
+  "keywords": ["arcade", "tournament", "rfid", "electron", "esp32"],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "better-sqlite3": "^12.0.0",
+    "cors": "^2.8.5",
+    "electron-store": "^8.2.0",
+    "express": "^4.18.2",
+    "uuid": "^11.0.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.2.0",
+    "concurrently": "^8.2.0",
+    "electron": "^28.0.0",
+    "electron-builder": "^24.9.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^6.21.0",
+    "vite": "^5.0.0",
+    "wait-on": "^7.2.0"
+  },
+  "build": {
+    "appId": "com.arcade.tournament-manager",
+    "productName": "Arcade Tournament Manager",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "src/**/*",
+      "public/**/*"
+    ],
+    "mac": {
+      "category": "public.app-category.games",
+      "target": "dmg"
+    },
+    "win": {
+      "target": "nsis"
+    }
+  }
+}
