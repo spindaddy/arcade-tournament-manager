@@ -20,7 +20,7 @@ jobs:
           python-version: '3.11'
       - run: npm ci
       - run: npx vite build --config vite.config.js
-      - run: npx electron-builder --mac --arm64
+      - run: npx electron-builder --mac --arm64 -p never
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - uses: actions/upload-artifact@v4
@@ -42,9 +42,10 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+      - uses: ilammy/msvc-dev-cmd@v1
       - run: npm ci
       - run: npx vite build --config vite.config.js
-      - run: npx electron-builder --win
+      - run: npx electron-builder --win -p never
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - uses: actions/upload-artifact@v4
@@ -67,7 +68,7 @@ jobs:
           python-version: '3.11'
       - run: npm ci
       - run: npx vite build --config vite.config.js
-      - run: npx electron-builder --linux
+      - run: npx electron-builder --linux -p never
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - uses: actions/upload-artifact@v4
