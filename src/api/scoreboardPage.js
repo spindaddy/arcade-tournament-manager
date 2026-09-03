@@ -66,6 +66,7 @@ function scoreboardPageHtml() {
     tbody td { padding: 18px 12px; font-size: 1.35rem; }
     .rank { width: 12%; font-weight: 700; }
     .player { width: 44%; font-weight: 600; }
+    .player-link { color: inherit; text-decoration: underline; }
     .score { width: 14%; font-weight: 800; font-variant-numeric: tabular-nums; }
     .status { width: 14%; }
     .playing { font-weight: 600; }
@@ -122,9 +123,12 @@ function scoreboardPageHtml() {
           var status = Number(e.currently_playing) > 0
             ? '<span class="playing">● Playing</span>'
             : '<span class="idle">Idle</span>';
+          var playerCell = e.twitch_name
+            ? '<a class="player-link" href="https://twitch.tv/' + encodeURIComponent(e.twitch_name) + '" target="_blank">' + escapeHtml(e.player_name) + '</a>'
+            : '<span>' + escapeHtml(e.player_name) + '</span>';
           return '<tr class="fade ' + cls + '">' +
             '<td class="rank">' + e.rank + ' ' + (medals[e.rank] || '') + '</td>' +
-            '<td class="player">' + escapeHtml(e.player_name) + '</td>' +
+            '<td class="player">' + playerCell + '</td>' +
             '<td class="score">' + (Number(e.total_score) || 0).toLocaleString() + '</td>' +
             '<td class="status">' + status + '</td>' +
             '</tr>';

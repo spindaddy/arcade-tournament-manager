@@ -108,7 +108,20 @@ function Scoreboard({ apiUrl, title }) {
                     <span className="rank-number">{entry.rank}</span>
                     {medalFor(entry.rank)}
                   </td>
-                  <td>{entry.player_name}</td>
+                  <td>
+                    {entry.twitch_name ? (
+                      <a
+                        href={`https://twitch.tv/${entry.twitch_name}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{ color: 'var(--accent)', textDecoration: 'underline' }}
+                      >
+                        {entry.player_name} <span style={{ opacity: 0.7, fontSize: '0.9em' }}>@</span>
+                      </a>
+                    ) : (
+                      entry.player_name
+                    )}
+                  </td>
                   <td className="score-total">{entry.total_score || 0}</td>
                   <td>
                     {Number(entry.currently_playing) > 0 ? (

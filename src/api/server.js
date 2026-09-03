@@ -324,10 +324,11 @@ app.get('/api/stats', (req, res) => {
 // Scoreboard - rank players by total score
 app.get('/api/scoreboard', (req, res) => {
   const rows = db.prepare(`
-    SELECT
-      p.id AS player_id,
-      p.name AS player_name,
-      COALESCE(SUM(gs.score), 0) AS total_score,
+        SELECT
+          p.id AS player_id,
+          p.name AS player_name,
+          p.twitch_name AS twitch_name,
+          COALESCE(SUM(gs.score), 0) AS total_score,
       COUNT(DISTINCT CASE WHEN gs.end_time IS NOT NULL THEN gs.id END) AS games_played,
       MAX(gs.score) AS best_score,
       COUNT(CASE WHEN gs.end_time IS NULL THEN 1 END) AS currently_playing
