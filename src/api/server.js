@@ -2,12 +2,18 @@ const express = require('express');
 const cors = require('cors');
 const { v4: uuidv4 } = require('uuid');
 const { getDatabase } = require('../database/schema');
+const { scoreboardPageHtml } = require('./scoreboardPage');
 
 const app = express();
 const PORT = process.env.API_PORT || 3001;
 
 app.use(cors());
 app.use(express.json());
+
+// Live scoreboard web page
+app.get('/', (req, res) => {
+  res.type('html').send(scoreboardPageHtml());
+});
 
 const db = getDatabase();
 

@@ -73,6 +73,7 @@ function startApiServer() {
     const cors = require('cors');
     const { v4: uuidv4 } = require('uuid');
     const Database = require('better-sqlite3');
+    const { scoreboardPageHtml } = require('../api/scoreboardPage');
 
     const apiApp = express();
     const PORT = 3001;
@@ -81,6 +82,11 @@ function startApiServer() {
 
     const db = new Database(DB_PATH);
     db.pragma('journal_mode = WAL');
+
+    // Live scoreboard web page
+    apiApp.get('/', (req, res) => {
+      res.type('html').send(scoreboardPageHtml());
+    });
 
     db.exec(`
       CREATE TABLE IF NOT EXISTS players (
