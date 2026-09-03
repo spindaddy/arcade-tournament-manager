@@ -1,6 +1,6 @@
 {
   "name": "arcade-tournament-manager",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Electron app for managing arcade tournaments with RFID badge tracking",
   "main": "src/main/main.js",
   "scripts": {
