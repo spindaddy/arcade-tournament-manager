@@ -111,7 +111,7 @@ function App() {
               <NavLink to="/settings">Settings</NavLink>
             </li>
             <li>
-              <NavLink to="/esp32">ESP32 Setup</NavLink>
+              <NavLink to="/esp32" end>ESP32 Setup</NavLink>
             </li>
             <li>
               <NavLink to="/esp32/program">ESP32 Program</NavLink>
