@@ -18,16 +18,31 @@ function isStoreAliasOutput(text) {
   return STORE_ALIAS_MARKERS.some((m) => t.includes(m.toLowerCase()));
 }
 
+// Python version we install on Windows when none is present.
+const PYTHON_VERSION = '3.12.8';
+
+// Where the silent per-user python.org install lands.
+function pythonInstallDir() {
+  if (process.platform !== 'win32') return null;
+  const majorMinor = PYTHON_VERSION.split('.').slice(0, 2).join('');
+  return path.join(os.homedir(), 'AppData', 'Local', 'Programs', 'Python', `Python${majorMinor}`);
+}
+
 // Ordered candidate interpreters.
 function pythonCandidates() {
   const penv = path.join(os.homedir(), '.platformio', 'penv');
   if (process.platform === 'win32') {
-    return [
-      { cmd: path.join(penv, 'Scripts', 'python.exe'), args: [] },
-      { cmd: 'py', args: ['-3'] },       // official Windows launcher
-      { cmd: 'python', args: [] },
-      { cmd: 'python3', args: [] }
+    const selfInstalled = pythonInstallDir();
+    const candidates = [
+      { cmd: path.join(penv, 'Scripts', 'python.exe'), args: [] }
     ];
+    if (selfInstalled && fs.existsSync(path.join(selfInstalled, 'python.exe'))) {
+      candidates.push({ cmd: path.join(selfInstalled, 'python.exe'), args: [] });
+    }
+    candidates.push({ cmd: 'py', args: ['-3'] });       // official Windows launcher
+    candidates.push({ cmd: 'python', args: [] });
+    candidates.push({ cmd: 'python3', args: [] });
+    return candidates;
   }
   return [
     { cmd: path.join(penv, 'bin', 'python3'), args: [] },
@@ -150,32 +165,42 @@ async function checkPrereqs() {
   };
 }
 
-// Download get-platformio.py with Node's HTTPS (no Python needed for this
-// step; Python is only needed to run the installer after).
-function downloadInstaller(scriptPath, onLog) {
+// Download a file over HTTPS with Node (no Python needed). Streams progress.
+function downloadFile(url, destPath, onLog) {
   return new Promise((resolve) => {
-    const url = new URL('https://raw.githubusercontent.com/platformio/platformio-core-installer/master/get-platformio.py');
     const req = https.get(url, { timeout: 120000 }, (res) => {
       if (res.statusCode < 200 || res.statusCode >= 300) {
-        onLog && onLog(`Failed to download PlatformIO installer: HTTP ${res.statusCode}`);
+        onLog && onLog(`Server responded HTTP ${res.statusCode} for ${url}`);
         return resolve(false);
       }
-      const out = fs.createWriteStream(scriptPath);
+      const total = parseInt(res.headers['content-length'] || '0', 10);
+      let received = 0;
+      const out = fs.createWriteStream(destPath);
+      res.on('data', (chunk) => {
+        received += chunk.length;
+        if (total && Math.floor(received / (1024 * 1024)) !== Math.floor((received - chunk.length) / (1024 * 1024))) {
+          onLog && onLog(`  ${Math.floor(received / (1024 * 1024))}/${Math.floor(total / (1024 * 1024))} MB`);
+        }
+      });
       res.pipe(out);
       out.on('finish', () => out.close(() => resolve(true)));
       out.on('error', () => {
-        onLog && onLog('Failed to download PlatformIO installer: write error');
+        onLog && onLog('Download failed: write error');
         resolve(false);
       });
     });
     req.on('error', (e) => {
-      onLog && onLog('Failed to download PlatformIO installer: ' + e.message);
+      onLog && onLog('Download failed: ' + e.message);
       resolve(false);
     });
-    req.on('timeout', () => {
-      req.destroy(new Error('timeout'));
-    });
+    req.on('timeout', () => req.destroy(new Error('timeout')));
   });
+}
+
+// Download get-platformio.py (Python is only needed to run it afterwards).
+async function downloadInstaller(scriptPath, onLog) {
+  const url = 'https://raw.githubusercontent.com/platformio/platformio-core-installer/master/get-platformio.py';
+  return downloadFile(url, scriptPath, onLog);
 }
 
 // Install PlatformIO using its official cross-platform standalone installer.
@@ -185,9 +210,9 @@ async function installPlatformio(onLog) {
   if (!python) {
     onLog && onLog('Python 3 is required to run the PlatformIO installer, but none was found.');
     if (process.platform === 'win32') {
-      onLog && onLog('On Windows: install Python from https://www.python.org/downloads/ and tick "Add Python to PATH" during setup.');
+      onLog && onLog('  -> Click "Install Python" on the ESP32 Setup screen and this app will install it automatically.');
+      onLog && onLog('  -> Or install it from https://www.python.org/downloads/ and tick "Add Python to PATH" during setup.');
       onLog && onLog('Note: the "python" shortcut in the Microsoft Store is only a stub and will not work.');
-      onLog && onLog('  - If `py` exists (installed with Python.org installer), this app will use it automatically.');
     } else {
       onLog && onLog('Install Python 3 (e.g. brew install python or apt install python3), then retry.');
     }
@@ -212,4 +237,56 @@ async function installPlatformio(onLog) {
   return { code };
 }
 
-module.exports = { checkPrereqs, installPlatformio, findPython, findUsablePython, pythonAvailable };
+// Install Python 3 on Windows silently (per-user, no admin) using the
+// official python.org installer. Works when no Python is present at all.
+async function installPython(onLog) {
+  if (process.platform !== 'win32') {
+    onLog && onLog('Automatic Python install is only supported on Windows.');
+    onLog && onLog('On macOS/Linux install Python 3 (e.g. brew install python or apt install python3), then re-check.');
+    return { code: 1, reason: 'unsupported-platform' };
+  }
+
+  const archUrl = process.arch === 'arm64' ? 'arm64' : 'amd64';
+  const url = `https://www.python.org/ftp/python/${PYTHON_VERSION}/python-${PYTHON_VERSION}-${archUrl}.exe`;
+  onLog && onLog(`Python 3 not found. Downloading ${url.split('/').join('/').slice(0, 90)}...`);
+
+  const exePath = path.join(os.tmpdir(), `python-${PYTHON_VERSION}-installer.exe`);
+  const downloaded = await downloadFile(url, exePath, onLog);
+  if (!downloaded) {
+    onLog && onLog('Failed to download the Python installer. Check your internet connection and retry.');
+    return { code: 1, reason: 'download-failed' };
+  }
+
+  onLog && onLog('Running silent installer (per-user, adds Python to PATH)...');
+  const code = await runStream(exePath, [
+    '/quiet',
+    'InstallAllUsers=0',
+    'PrependPath=1',
+    'Include_launcher=1',
+    'Include_pip=1',
+    'Include_test=0',
+    'SimpleInstall=1'
+  ], {}, onLog);
+  try { fs.unlinkSync(exePath); } catch (e) {}
+
+  if (code === 0) {
+    const dir = pythonInstallDir();
+    // Make the fresh Python visible to this app without a restart.
+    if (dir && fs.existsSync(dir)) {
+      const add = dir + ';' + path.join(dir, 'Scripts');
+      for (const key of ['Path', 'PATH', 'Path_HKLM', 'Path_HKLM_current']) {
+        const cur = process.env[key];
+        if (cur !== undefined && !cur.includes(dir)) process.env[key] = add + ';' + cur;
+      }
+    }
+    const usable = await findUsablePython();
+    onLog && onLog(usable
+      ? `\nPython installed: ${usable.cmd} ${usable.args.join(' ')} (${usable.version})`
+      : '\nPython installer finished but the install could not be verified.');
+    return { code: usable ? 0 : 1, dir: dir || null };
+  }
+  onLog && onLog('\nPython installer reported a non-zero exit code. It may have been blocked — try installing from python.org manually.');
+  return { code };
+}
+
+module.exports = { checkPrereqs, installPlatformio, installPython, findPython, findUsablePython, pythonAvailable };

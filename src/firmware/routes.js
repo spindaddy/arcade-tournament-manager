@@ -1,7 +1,7 @@
 const express = require('express');
 const { v4: uuidv4 } = require('uuid');
 const { platformioAvailable, buildFirmware, flashFirmware, findPio, findEsptool, listPorts, startMonitor } = require('./flasher');
-const { checkPrereqs, installPlatformio } = require('./prerequisites');
+const { checkPrereqs, installPlatformio, installPython } = require('./prerequisites');
 const { generateIno } = require('./generator');
 
 // In-memory flash job store. Both the standalone API and the Electron server
@@ -29,6 +29,25 @@ function registerFirmwareRoutes(app) {
   router.get('/prereqs', async (req, res) => {
     const report = await checkPrereqs();
     res.json(report);
+  });
+
+  // Install Python 3 when missing (Windows). Streaming install job.
+  router.post('/prereqs/python-install', (req, res) => {
+    const id = uuidv4();
+    const job = { id, lines: [], status: 'running', since: new Date().toISOString() };
+    jobs.set(id, job);
+    const onLog = (line) => {
+      job.lines.push(line);
+      if (job.lines.length > 5000) job.lines.splice(0, job.lines.length - 5000);
+    };
+    installPython(onLog).then((result) => {
+      job.status = result.code === 0 ? 'success' : 'error';
+      job.result = result;
+    }).catch((err) => {
+      job.status = 'error';
+      job.result = { code: -1, error: err.message };
+    });
+    res.json({ id, status: 'running' });
   });
 
   // Install PlatformIO (the main prerequisite). Streaming install job.

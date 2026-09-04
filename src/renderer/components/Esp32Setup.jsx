@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 function Esp32Setup({ apiUrl }) {
   const [prereqs, setPrereqs] = useState(null);
   const [installing, setInstalling] = useState(false);
+  const [installKind, setInstallKind] = useState(null);
   const [output, setOutput] = useState([]);
   const [doneStatus, setDoneStatus] = useState(null);
 
@@ -20,10 +21,24 @@ function Esp32Setup({ apiUrl }) {
   const installPlatformio = async () => {
     setOutput([]);
     setDoneStatus(null);
+    setInstallKind('platformio');
     setInstalling(true);
     setOutput(['Installing PlatformIO... this may take several minutes.']);
+    startInstall('firmware/prereqs/install');
+  };
+
+  const installPython = async () => {
+    setOutput([]);
+    setDoneStatus(null);
+    setInstallKind('python');
+    setInstalling(true);
+    setOutput(['Installing Python 3...']);
+    startInstall('firmware/prereqs/python-install');
+  };
+
+  const startInstall = async (path) => {
     try {
-      const r = await fetch(`${apiUrl}/firmware/prereqs/install`, { method: 'POST' });
+      const r = await fetch(`${apiUrl}/${path}`, { method: 'POST' });
       const data = await r.json();
       streamJob(data.id);
     } catch (e) {
@@ -77,7 +92,12 @@ function Esp32Setup({ apiUrl }) {
             <PrereqRow label="Python" ok={prereqs.python.installed}
               detail={prereqs.python.installed
                 ? `${prereqs.python.path}${prereqs.python.version ? ` (${prereqs.python.version})` : ''}`
-                : (prereqs.python.note || 'Python 3 not found')} />
+                : (prereqs.python.note || 'Python 3 not found')}
+              action={!prereqs.python.installed && (
+                <button className="btn btn-primary" onClick={installPython} disabled={installing}>
+                  {installing && installKind === 'python' ? 'Installing...' : 'Install Python'}
+                </button>
+              )} />
             <PrereqRow label="esptool (comes with PlatformIO)" ok={prereqs.esptool.installed} detail={prereqs.esptool.path} />
             <PrereqRow label="Serial port available"
               ok={prereqs.serialPortsPresent}
@@ -89,7 +109,9 @@ function Esp32Setup({ apiUrl }) {
       {doneStatus && (
         <div className="card">
           <h2 className="card-title" style={{ color: doneStatus === 'success' ? 'var(--success, #4caf50)' : '#e57373' }}>
-            {doneStatus === 'success' ? 'PlatformIO is ready.' : 'Install finished with errors. Review the output below.'}
+            {doneStatus === 'success'
+              ? (installKind === 'python' ? 'Python is ready. Re-check to install PlatformIO.' : 'PlatformIO is ready.')
+              : 'Install finished with errors. Review the output below.'}
           </h2>
         </div>
       )}
