@@ -2,9 +2,11 @@ import React, { useState, useEffect } from 'react';
 
 function Dashboard({ stats, apiUrl }) {
   const [recentScans, setRecentScans] = useState([]);
+  const [connection, setConnection] = useState(null);
 
   useEffect(() => {
     fetchActiveSessions();
+    fetchConnection();
     const interval = setInterval(fetchActiveSessions, 3000);
     return () => clearInterval(interval);
   }, []);
@@ -16,6 +18,16 @@ function Dashboard({ stats, apiUrl }) {
       setRecentScans(data);
     } catch (error) {
       console.error('Failed to fetch active sessions:', error);
+    }
+  };
+
+  const fetchConnection = async () => {
+    try {
+      const response = await fetch(`${apiUrl}/connection`);
+      const data = await response.json();
+      setConnection(data);
+    } catch (error) {
+      console.error('Failed to fetch connection info:', error);
     }
   };
 
@@ -83,24 +95,39 @@ function Dashboard({ stats, apiUrl }) {
 
       <div className="card">
         <div className="card-header">
-          <h2 className="card-title">ESP32 Connection</h2>
+          <h2 className="card-title">Connection Info</h2>
+          <button className="btn btn-secondary" onClick={fetchConnection}>
+            Refresh IP
+          </button>
         </div>
-        <p style={{ color: 'var(--text-secondary)' }}>
-          Your ESP32 devices should POST to: <code>{apiUrl}/scan</code>
-        </p>
-        <pre style={{
-          background: 'var(--bg-card)',
-          padding: '12px',
-          borderRadius: '8px',
-          marginTop: '12px',
-          fontSize: '13px'
-        }}>
-{`{
-  "badge_uid": "AA:BB:CC:DD",
-  "reader_id": "reader-01"
-}`}
-        </pre>
+        {connection ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '4px' }}>
+            <ConnectionRow label="API Base URL" value={connection.apiBase} target={`${connection.apiBase}/api`} />
+            <ConnectionRow label="Web Scoreboard" value={connection.scoreboardUrl} target={connection.scoreboardUrl} />
+            <ConnectionRow label="ESP32 Scan Endpoint" value={connection.scanEndpoint} target={connection.scanEndpoint} />
+            <p style={{ color: 'var(--text-secondary)', fontSize: '13px', marginTop: '4px' }}>
+              This Mac's current LAN address is <code>{connection.lanIp}</code>.
+              Use these URLs on your ESP32 devices and any phone/tablet on the same Wi-Fi network.
+            </p>
+          </div>
+        ) : (
+          <div className="empty-state">
+            <div className="icon">🌐</div>
+            <p>Unable to determine connection info.</p>
+          </div>
+        )}
       </div>
+    </div>
+  );
+}
+
+function ConnectionRow({ label, value, target }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px' }}>
+      <span style={{ color: 'var(--text-secondary)', minWidth: '170px', fontSize: '13px' }}>{label}</span>
+      <a href={target} target="_blank" rel="noreferrer" style={{ color: 'var(--accent)', fontSize: '14px' }}>
+        {value}
+      </a>
     </div>
   );
 }

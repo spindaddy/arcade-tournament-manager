@@ -63,6 +63,17 @@ function initializeDatabase() {
       reader_id TEXT UNIQUE NOT NULL,
       location TEXT,
       is_active INTEGER DEFAULT 1,
+      obs_source_name TEXT,
+      obs_server_id TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS obs_servers (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      host TEXT NOT NULL,
+      port INTEGER NOT NULL DEFAULT 4455,
+      password TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
@@ -106,6 +117,57 @@ function initializeDatabase() {
     }
   } catch (migrationError) {
     console.error('twitch_name migration skipped:', migrationError.message);
+  }
+
+  // Migration: add obs_source_name to arcade_machines
+  try {
+    const machineCols = db.prepare(`PRAGMA table_info(arcade_machines)`).all();
+    if (!machineCols.find(c => c.name === 'obs_source_name')) {
+      db.exec(`ALTER TABLE arcade_machines ADD COLUMN obs_source_name TEXT`);
+    }
+    if (!machineCols.find(c => c.name === 'obs_server_id')) {
+      db.exec(`ALTER TABLE arcade_machines ADD COLUMN obs_server_id TEXT`);
+    }
+  } catch (migrationError) {
+    console.error('obs_source_name migration skipped:', migrationError.message);
+  }
+
+  // Migration: create obs_servers table for databases predating it
+  try {
+    db.exec(`CREATE TABLE IF NOT EXISTS obs_servers (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      host TEXT NOT NULL,
+      port INTEGER NOT NULL DEFAULT 4455,
+      password TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`);
+  } catch (migrationError) {
+    console.error('obs_servers migration skipped:', migrationError.message);
+  }
+
+  // Migration: import legacy single-OBS settings (obs_host/obs_port/obs_password) into a default server
+  try {
+    const serverCount = db.prepare('SELECT COUNT(*) as count FROM obs_servers').get().count;
+    if (serverCount === 0) {
+      const row = db.prepare('SELECT key, value FROM settings WHERE key = ?').get('obs_host');
+      if (row && row.value) {
+        const portRow = db.prepare('SELECT value FROM settings WHERE key = ?').get('obs_port');
+        const passRow = db.prepare('SELECT value FROM settings WHERE key = ?').get('obs_password');
+        const { v4: uuidv4 } = require('uuid');
+        db.prepare(`INSERT INTO obs_servers (id, name, host, port, password) VALUES (?, ?, ?, ?, ?)`)
+          .run(uuidv4(), 'Default', row.value, parseInt(portRow && portRow.value, 10) || 4455, (passRow && passRow.value) || '');
+      }
+      // Point machines that had an OBS source at the default server
+      if (row && row.value) {
+        const defaultServer = db.prepare('SELECT id FROM obs_servers ORDER BY created_at LIMIT 1').get();
+        if (defaultServer) {
+          db.prepare(`UPDATE arcade_machines SET obs_server_id = ? WHERE obs_source_name IS NOT NULL`).run(defaultServer.id);
+        }
+      }
+    }
+  } catch (migrationError) {
+    console.error('obs_servers settings migration skipped:', migrationError.message);
   }
 
   // Migration: ensure machine_id is nullable on game_sessions

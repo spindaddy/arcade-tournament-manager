@@ -43,7 +43,7 @@ function Tournaments({ apiUrl }) {
         end_date: formData.end_date ? new Date(formData.end_date).toISOString() : null
       };
       const response = await fetch(`${apiUrl}/tournaments`, {
-        method: 'POST',
+        method: tournament ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body)
       });

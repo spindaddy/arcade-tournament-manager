@@ -2,13 +2,24 @@ import React, { useState, useEffect } from 'react';
 
 function Machines({ apiUrl }) {
   const [machines, setMachines] = useState([]);
+  const [obsServers, setObsServers] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState(null);
-  const [formData, setFormData] = useState({ name: '', reader_id: '', location: '', is_active: true });
+  const [formData, setFormData] = useState({ name: '', reader_id: '', location: '', is_active: true, obs_source_name: '', obs_server_id: '' });
 
   useEffect(() => {
     fetchMachines();
+    fetchObsServers();
   }, []);
+
+  const fetchObsServers = async () => {
+    try {
+      const response = await fetch(`${apiUrl}/obs/servers`);
+      setObsServers(await response.json());
+    } catch (error) {
+      console.error('Failed to fetch OBS servers:', error);
+    }
+  };
 
   const fetchMachines = async () => {
     try {
@@ -22,7 +33,7 @@ function Machines({ apiUrl }) {
 
   const openCreate = () => {
     setEditing(null);
-    setFormData({ name: '', reader_id: '', location: '', is_active: true });
+    setFormData({ name: '', reader_id: '', location: '', is_active: true, obs_source_name: '', obs_server_id: '' });
     setShowModal(true);
   };
 
@@ -32,7 +43,9 @@ function Machines({ apiUrl }) {
       name: machine.name,
       reader_id: machine.reader_id,
       location: machine.location || '',
-      is_active: !!machine.is_active
+      is_active: !!machine.is_active,
+      obs_source_name: machine.obs_source_name || '',
+      obs_server_id: machine.obs_server_id || ''
     });
     setShowModal(true);
   };
@@ -99,6 +112,8 @@ function Machines({ apiUrl }) {
                 <th>Name</th>
                 <th>Reader ID</th>
                 <th>Location</th>
+                <th>OBS Server</th>
+                <th>OBS Source</th>
                 <th>Status</th>
                 <th>Actions</th>
               </tr>
@@ -111,6 +126,8 @@ function Machines({ apiUrl }) {
                     <code style={{ color: 'var(--accent)' }}>{machine.reader_id}</code>
                   </td>
                   <td>{machine.location || '-'}</td>
+                  <td>{machine.obs_server_id ? (obsServers.find((s) => s.id === machine.obs_server_id)?.name || 'Unknown') : '-'}</td>
+                  <td>{machine.obs_source_name ? <code style={{ color: 'var(--accent)' }}>{machine.obs_source_name}</code> : '-'}</td>
                   <td>
                     {machine.is_active ? (
                       <span className="badge badge-success">Active</span>
@@ -169,6 +186,33 @@ function Machines({ apiUrl }) {
                   value={formData.location}
                   onChange={(e) => setFormData({ ...formData, location: e.target.value })}
                 />
+              </div>
+              <div className="form-group">
+                <label>OBS Server</label>
+                <select
+                  value={formData.obs_server_id}
+                  onChange={(e) => setFormData({ ...formData, obs_server_id: e.target.value })}
+                >
+                  <option value="">None</option>
+                  {obsServers.map((s) => (
+                    <option key={s.id} value={s.id}>{s.name} ({s.host}:{s.port})</option>
+                  ))}
+                </select>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '13px', marginTop: '6px' }}>
+                  Which OBS server this machine pushes its player name to.
+                </p>
+              </div>
+              <div className="form-group">
+                <label>OBS Source Name</label>
+                <input
+                  type="text"
+                  placeholder="e.g., Player Name (optional)"
+                  value={formData.obs_source_name}
+                  onChange={(e) => setFormData({ ...formData, obs_source_name: e.target.value })}
+                />
+                <p style={{ color: 'var(--text-secondary)', fontSize: '13px', marginTop: '6px' }}>
+                  If set, the current player name is pushed to this OBS text source on each check-in.
+                </p>
               </div>
               <div className="form-group">
                 <label>Status</label>

@@ -8,6 +8,9 @@ import ActiveSessions from './components/ActiveSessions';
 import InstallGuide from './components/InstallGuide';
 import Scoreboard from './components/Scoreboard';
 import Settings from './components/Settings';
+import Esp32Setup from './components/Esp32Setup';
+import Esp32Program from './components/Esp32Program';
+import ObsSetup from './components/ObsSetup';
 
 const API_URL = 'http://localhost:3001/api';
 const API_BASE = 'http://localhost:3001';
@@ -72,7 +75,7 @@ function App() {
       <div className="app">
         <nav className="sidebar">
           <div className="logo">
-            <span className="logo-icon">🎮</span>
+            <span className="logo-icon">🦍</span>
             <span className="logo-text">{title}</span>
           </div>
           <ul className="nav-links">
@@ -103,8 +106,18 @@ function App() {
             <li>
               <NavLink to="/active">Active Sessions</NavLink>
             </li>
+            <li className="nav-divider" aria-hidden="true" />
             <li>
               <NavLink to="/settings">Settings</NavLink>
+            </li>
+            <li>
+              <NavLink to="/esp32">ESP32 Setup</NavLink>
+            </li>
+            <li>
+              <NavLink to="/esp32/program">ESP32 Program</NavLink>
+            </li>
+            <li>
+              <NavLink to="/obs">OBS Connection</NavLink>
             </li>
             <li>
               <NavLink to="/guide">Install Guide</NavLink>
@@ -144,6 +157,9 @@ function App() {
             ))}
             <Route path="/active" element={<ActiveSessions apiUrl={API_URL} />} />
             <Route path="/settings" element={<Settings apiUrl={API_URL} currentTheme={theme} onThemeChange={setTheme} onDivisionsChange={fetchDivisions} />} />
+            <Route path="/esp32" element={<Esp32Setup apiUrl={API_URL} />} />
+            <Route path="/esp32/program" element={<Esp32Program apiUrl={API_URL} />} />
+            <Route path="/obs" element={<ObsSetup apiUrl={API_URL} />} />
             <Route path="/guide" element={<InstallGuide />} />
           </Routes>
         </main>

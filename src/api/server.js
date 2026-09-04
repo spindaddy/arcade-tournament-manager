@@ -2,6 +2,10 @@ const express = require('express');
 const cors = require('cors');
 const { v4: uuidv4 } = require('uuid');
 const { getDatabase } = require('../database/schema');
+const { getLanIp } = require('./networkInfo');
+const { registerFirmwareRoutes } = require('../firmware/routes');
+const { registerObsRoutes } = require('../obs/obsRoutes');
+const obsManager = require('../obs/obsManager');
 const { scoreboardPageHtml } = require('./scoreboardPage');
 
 const app = express();
@@ -47,6 +51,37 @@ app.get('/api/meta', (req, res) => {
   res.json({ title: tournament ? tournament.name : 'Arcade Tournament', theme: settings.theme || 'dark', tournament });
 });
 
+// Network connection info (LAN IP + URLs for ESP32 / web scoreboard)
+app.get('/api/connection', (req, res) => {
+  const ip = getLanIp();
+  res.json({
+    port: PORT,
+    lanIp: ip,
+    apiBase: `http://${ip}:${PORT}`,
+    scoreboardUrl: `http://${ip}:${PORT}/`,
+    scanEndpoint: `http://${ip}:${PORT}/api/scan`
+  });
+});
+
+// Firmware generation + ESP32 flash endpoints
+registerFirmwareRoutes(app);
+
+// OBS websocket integration
+registerObsRoutes(app, db);
+
+// Push player name to OBS text source for a machine (async, non-blocking).
+async function pushObsUpdate(readerId, playerName) {
+  try {
+    const machine = db.prepare('SELECT obs_source_name, obs_server_id FROM arcade_machines WHERE reader_id = ?').get(readerId);
+    if (!machine || !machine.obs_source_name || !machine.obs_server_id) return;
+    const server = db.prepare('SELECT * FROM obs_servers WHERE id = ?').get(machine.obs_server_id);
+    if (!server) return;
+    await obsManager.updateTextSource(server, machine.obs_source_name, playerName || '');
+  } catch (e) {
+    // OBS push failure is non-fatal for the scan
+  }
+}
+
 // ESP32 RFID scan endpoint
 app.post('/api/scan', (req, res) => {
   const { badge_uid, reader_id } = req.body;
@@ -91,6 +126,9 @@ app.post('/api/scan', (req, res) => {
           VALUES (?, ?, ?, datetime('now'))
         `).run(newSessionId, badge.player_id, machine ? machine.id : reader_id);
 
+        const switchedPlayer = db.prepare('SELECT name FROM players WHERE id = ?').get(badge.player_id);
+        pushObsUpdate(reader_id, switchedPlayer ? switchedPlayer.name : 'Unknown');
+
         return res.json({
           status: 'switched_game',
           player_id: badge.player_id,
@@ -112,6 +150,8 @@ app.post('/api/scan', (req, res) => {
     `).run(sessionId, badge.player_id, machine ? machine.id : reader_id);
 
     const player = db.prepare('SELECT name FROM players WHERE id = ?').get(badge.player_id);
+
+    pushObsUpdate(reader_id, player ? player.name : 'Unknown');
 
     res.json({
       status: 'checked_in',
@@ -233,7 +273,7 @@ app.post('/api/tournaments', (req, res) => {
   }
 
   if (existing) {
-    db.prepare(`UPDATE tournaments SET name = ?, description = ?, start_date = ?, end_date = ?, updated_at = datetime('now') WHERE id = ?`).run(name, description || null, start_date || null, end_date || null, existing.id);
+    db.prepare(`UPDATE tournaments SET name = ?, description = ?, start_date = ?, end_date = ? WHERE id = ?`).run(name, description || null, start_date || null, end_date || null, existing.id);
     return res.json(db.prepare('SELECT * FROM tournaments WHERE id = ?').get(existing.id));
   }
 
@@ -256,7 +296,7 @@ app.put('/api/tournaments', (req, res) => {
   const { name, description, start_date, end_date } = req.body;
   const row = db.prepare('SELECT * FROM tournaments LIMIT 1').get();
   if (!row) return res.status(404).json({ error: 'No tournament exists yet' });
-  db.prepare(`UPDATE tournaments SET name = ?, description = ?, start_date = ?, end_date = ?, updated_at = datetime('now') WHERE id = ?`).run(name || row.name, description !== undefined ? description : row.description, start_date !== undefined ? start_date : row.start_date, end_date !== undefined ? end_date : row.end_date, row.id);
+  db.prepare(`UPDATE tournaments SET name = ?, description = ?, start_date = ?, end_date = ? WHERE id = ?`).run(name || row.name, description !== undefined ? description : row.description, start_date !== undefined ? start_date : row.start_date, end_date !== undefined ? end_date : row.end_date, row.id);
   res.json(db.prepare('SELECT * FROM tournaments WHERE id = ?').get(row.id));
 });
 
@@ -268,7 +308,7 @@ app.get('/api/machines', (req, res) => {
 
 // Register arcade machine
 app.post('/api/machines', (req, res) => {
-  const { name, reader_id, location, is_active } = req.body;
+  const { name, reader_id, location, is_active, obs_source_name, obs_server_id } = req.body;
 
   if (!name || !reader_id) {
     return res.status(400).json({ error: 'name and reader_id required' });
@@ -276,19 +316,19 @@ app.post('/api/machines', (req, res) => {
 
   const id = uuidv4();
   db.prepare(`
-    INSERT INTO arcade_machines (id, name, reader_id, location, is_active)
-    VALUES (?, ?, ?, ?, ?)
-  `).run(id, name, reader_id, location || null, is_active !== undefined ? (is_active ? 1 : 0) : 1);
+    INSERT INTO arcade_machines (id, name, reader_id, location, is_active, obs_source_name, obs_server_id)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).run(id, name, reader_id, location || null, is_active !== undefined ? (is_active ? 1 : 0) : 1, obs_source_name || null, obs_server_id || null);
 
-  res.json({ id, name, reader_id, location });
+  res.json(db.prepare('SELECT * FROM arcade_machines WHERE id = ?').get(id));
 });
 
 // Update arcade machine
 app.put('/api/machines/:id', (req, res) => {
-  const { name, reader_id, location, is_active } = req.body;
+  const { name, reader_id, location, is_active, obs_source_name, obs_server_id } = req.body;
   const machine = db.prepare('SELECT * FROM arcade_machines WHERE id = ?').get(req.params.id);
   if (!machine) return res.status(404).json({ error: 'Machine not found' });
-  db.prepare(`UPDATE arcade_machines SET name = ?, reader_id = ?, location = ?, is_active = ? WHERE id = ?`).run(name || machine.name, reader_id || machine.reader_id, location !== undefined ? location : machine.location, is_active !== undefined ? (is_active ? 1 : 0) : machine.is_active, machine.id);
+  db.prepare(`UPDATE arcade_machines SET name = ?, reader_id = ?, location = ?, is_active = ?, obs_source_name = ?, obs_server_id = ? WHERE id = ?`).run(name || machine.name, reader_id || machine.reader_id, location !== undefined ? location : machine.location, is_active !== undefined ? (is_active ? 1 : 0) : machine.is_active, obs_source_name !== undefined ? obs_source_name : machine.obs_source_name, obs_server_id !== undefined ? (obs_server_id || null) : machine.obs_server_id, machine.id);
   res.json(db.prepare('SELECT * FROM arcade_machines WHERE id = ?').get(machine.id));
 });
 
@@ -297,6 +337,7 @@ app.delete('/api/machines/:id', (req, res) => {
   const machine = db.prepare('SELECT * FROM arcade_machines WHERE id = ?').get(req.params.id);
   if (!machine) return res.status(404).json({ error: 'Machine not found' });
   db.prepare(`UPDATE game_sessions SET machine_id = NULL WHERE machine_id = ?`).run(machine.id);
+  db.prepare(`DELETE FROM scan_logs WHERE reader_id = ?`).run(machine.reader_id);
   db.prepare(`DELETE FROM arcade_machines WHERE id = ?`).run(machine.id);
   res.json({ ok: true, id: machine.id });
 });

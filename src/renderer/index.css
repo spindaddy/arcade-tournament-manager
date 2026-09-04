@@ -221,6 +221,11 @@ body {
   color: white;
 }
 
+.nav-divider {
+  border-top: 1px solid var(--border);
+  margin: 10px 12px;
+}
+
 .stats-mini {
   padding: 16px 20px;
   border-top: 1px solid var(--border);
