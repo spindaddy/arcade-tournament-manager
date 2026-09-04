@@ -9,6 +9,9 @@ A desktop application for managing arcade tournaments with RFID badge tracking. 
 - **Real-Time Game Tracking** - See who is playing which machine right now
 - **RFID Badge System** - Players scan badges at machines to check in/out
 - **ESP32 Integration** - WiFi-connected RFID readers report scans to the app
+- **In-App Firmware Flashing** - Generate, build, and flash ESP32 firmware over USB from inside the app (installs PlatformIO/Python automatically)
+- **OBS Live Player Names** - Push the current player's name to any OBS instance's text source per machine (obs-websocket 5.x)
+- **Live Web Scoreboard** - `http://<ip>:3001/` rankings view for wall screens, with optional divisions
 - **Dashboard** - Live stats: active players, scans today, current sessions
 - **Cross-Platform** - Works on macOS, Windows, and Linux
 
@@ -36,11 +39,13 @@ Go to [Releases](https://github.com/spindaddy/arcade-tournament-manager/releases
 
 | Platform | File |
 |----------|------|
-| macOS | `.dmg` |
+| macOS (Intel) | `-mac-x64.dmg` |
+| macOS (Apple Silicon) | `-mac-arm64.dmg` |
 | Windows | `.exe` (NSIS installer) |
-| Linux | `.AppImage` or `.deb` |
+| Linux | `.AppImage` |
 
-No additional software needs to be installed. The app is fully self-contained.
+No additional software needs to be installed — Python and PlatformIO are
+installed automatically by the app when you program your first ESP32 reader.
 
 ## Quick Start
 
@@ -48,12 +53,14 @@ No additional software needs to be installed. The app is fully self-contained.
 2. Launch the app
 3. Register players and assign RFID badges
 4. Register each arcade machine with its ESP32 reader ID
-5. ESP32 devices start scanning badges and reporting to the app
-6. Watch the dashboard for live activity
+5. Go to **ESP32 Setup** and **ESP32 Program** to install the toolchain, generate
+   firmware, and flash each ESP32 over USB (or use the manual example below)
+6. Wire up the readers (see [INSTALL.md](INSTALL.md)) and they start reporting scans
+7. Watch the dashboard for live activity; add an [OBS connection](INSTALL.md#obs-integration-live-player-names) for live player names
 
-## ESP32 Example Code
+## ESP32 Firmware
 
-Ready-to-use ESP32 firmware is included in the repo:
+A ready-to-use reference sketch is included in the repo:
 
 ```
 esp32/arcade_rfid_reader/
@@ -61,12 +68,16 @@ esp32/arcade_rfid_reader/
   platformio.ini           # PlatformIO configuration
 ```
 
-This reads RFID badges, reports scans to the app, and beeps for 1 second on a successful check-in (active buzzer on GPIO 4).
+This reads RFID badges, reports scans to the app, and beeps for 1 second on a
+successful check-in (active buzzer on GPIO 4). The same firmware is generated
+and flashed automatically by the app's **ESP32 Program** screen, so you normally
+never need to open VS Code or the Arduino IDE.
 
+- **In-app (recommended):** ESP32 Setup (auto-installs PlatformIO/Python) → ESP32 Program (Preview, Build & Flash, Serial Monitor)
 - **Arduino IDE:** open `arcade_rfid_reader.ino`, set your WiFi credentials + server IP, flash
 - **PlatformIO:** open the `esp32/arcade_rfid_reader/` folder in VS Code, click Upload
 
-See [INSTALL.md](INSTALL.md) for full wiring diagrams and setup instructions.
+See [INSTALL.md](INSTALL.md) for full wiring diagrams, OBS and scoreboard setup.
 
 ## Development
 
@@ -126,6 +137,13 @@ arcade-tournament-manager/
       server.js           # Standalone API server (for dev)
     database/
       schema.js           # SQLite schema + database setup
+    firmware/
+      generator.js        # ESP32 firmware generator (.ino + platformio.ini)
+      prerequisites.js    # Python detection/install, PlatformIO install
+      routes.js           # Firmware build/flash/monitor API routes
+    obs/
+      obs.js              # obs-websocket 5.x client (multi-server)
+      routes.js           # OBS server CRUD + test/update routes
     renderer/
       App.jsx             # React app with routing
       index.html          # Entry HTML
@@ -136,6 +154,9 @@ arcade-tournament-manager/
         Players.jsx       # Player registration + badge assignment
         Tournaments.jsx   # Tournament creation and management
         Machines.jsx      # Arcade machine registration
+        ObsSetup.jsx      # OBS server configuration
+        Esp32Setup.jsx    # Toolchain prerequisites (Python/PlatformIO)
+        Esp32Program.jsx  # Firmware generate/build/flash/serial monitor
         ActiveSessions.jsx # Real-time active game tracking
   dist/renderer/          # Built React app (generated)
   release/                # Built installers (generated)
@@ -158,6 +179,10 @@ The app runs an Express API server on port 3001. ESP32 devices use these endpoin
 | GET | `/api/machines` | List arcade machines |
 | POST | `/api/machines` | Register an arcade machine |
 | GET | `/api/sessions/active` | List active game sessions |
+
+Additional endpoints back the OBS connection and ESP32 tooling screens
+(`/api/obs/*` server CRUD + test/push, `/firmware/*` prerequisites, preview,
+flash, ports, serial monitor streaming).
 
 ### Scan Request
 

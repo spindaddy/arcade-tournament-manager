@@ -11,8 +11,11 @@ This guide covers installing the Arcade Tournament Manager, setting up the netwo
 3. [ESP32 Hardware](#esp32-hardware)
 4. [Programming the ESP32](#programming-the-esp32)
 5. [Configuring Readers in the App](#configuring-readers-in-the-app)
-6. [Testing the Setup](#testing-the-setup)
-7. [Tournament Day Checklist](#tournament-day-checklist)
+6. [OBS Integration (Live Player Names)](#obs-integration-live-player-names)
+7. [Live Scoreboard](#live-scoreboard)
+8. [Testing the Setup](#testing-the-setup)
+9. [Tournament Day Checklist](#tournament-day-checklist)
+10. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -36,16 +39,25 @@ This guide covers installing the Arcade Tournament Manager, setting up the netwo
 
 ### Linux
 
-**AppImage (any distro):**
+**AppImage (any distro — this is the packaged Linux build):**
 ```bash
-chmod +x Arcade\ Tournament\ Manager-x.x.x-linux-x64.AppImage
-./Arcade\ Tournament\ Manager-x.x.x-linux-x64.AppImage
+chmod +x Arcade\ Tournament\ Manager-1.3.5-linux-x86_64.AppImage
+./Arcade\ Tournament\ Manager-1.3.5-linux-x86_64.AppImage
 ```
 
-**Debian/Ubuntu:**
-```bash
-sudo dpkg -i arcade-tournament-manager_x.x.x_amd64.deb
-```
+> Note: a `.deb` package is not currently produced (the cross-platform deb
+> generator produces an empty archive on macOS). Use the AppImage on Debian/Ubuntu.
+
+### First Launch
+
+When the app starts it launches the management window **and** a local API server
+on `http://localhost:3001`. The app keeps all of its data (players, machines,
+tournaments, settings) in a single SQLite database:
+
+- **macOS/Linux:** `~/Library/Application Support/arcade-tournament-manager/data/tournament.db`
+- **Windows:** `%APPDATA%\arcade-tournament-manager\data\tournament.db`
+
+Back this file up before events.
 
 ---
 
@@ -185,7 +197,49 @@ An active buzzer beeps whenever it has power, so the firmware drives GPIO 4 HIGH
 
 ## Programming the ESP32
 
-### Prerequisites
+There are two ways to program the readers:
+
+- **Option A (recommended): in-app** — the app generates finished firmware and
+  flashes it over USB itself. Requires nothing but the app and the ESP32.
+- **Option B: manual** — traditional VS Code + PlatformIO or Arduino IDE.
+
+### Option A: In-App Programming (Recommended)
+
+The app's **ESP32 Setup** and **ESP32 Program** screens handle the whole
+toolchain automatically.
+
+1. Go to **ESP32 Setup** in the sidebar. It checks the requirements automatically:
+   - **PlatformIO** — if missing, click **Install PlatformIO**. The app downloads
+     the official installer itself (takes a few minutes on first run).
+   - **Python** — on Windows, if Python 3 is not installed, click **Install Python**.
+     The app silently installs the official python.org 3.12 build (per-user, no
+     admin rights needed, added to PATH automatically). The "python" shortcut in
+     the Microsoft Store is only a stub and will not work — always use the app's
+     install button (or python.org).
+   - **Serial port available** — connect the ESP32 over USB; the app lists ports
+     and flags ones that look like an ESP32 (CP210x/CH340 drivers).
+2. Connect the ESP32 to your computer with a USB cable.
+3. Go to **ESP32 Program** and fill in:
+   - **WiFi Name** and **WiFi Password** (2.4 GHz network — see [Network Setup](#network-setup)).
+   - **Server URL** — auto-filled as `http://<your-IP>:3001/api/scan`; adjust if needed.
+   - **Reader ID** — a unique ID per reader (e.g. `reader-01`). This must match the
+     **Reader ID** you register for that machine in the app later.
+   - **Serial Port** — pick the detected ESP32 port.
+4. Click **Preview** to inspect the generated `.ino` source if you like.
+5. Click **Build & Flash** — the app compiles and uploads the firmware over USB.
+6. Use **Serial Monitor** to watch live output at 115200 baud
+   (`Ready to scan badges...` means it connected to your WiFi and is working).
+
+Repeat for each reader, changing only the **Reader ID**.
+
+The generated firmware uses the wiring pins below (SS=GPIO 5, RST=GPIO 27,
+buzzer=GPIO 4) and beeps 1 second on a successful check-in.
+
+### Option B: Manual (VS Code / Arduino IDE)
+
+Useful if you want to customize the firmware yourself.
+
+**Prerequisites**
 
 Install [PlatformIO](https://platformio.org/) in VS Code, or use the Arduino IDE with ESP32 board support.
 
@@ -196,7 +250,7 @@ Install [PlatformIO](https://platformio.org/) in VS Code, or use the Arduino IDE
 4. Go to **Tools > Board > Board Manager**, search "esp32", install
 5. Go to **Tools > Manage Libraries**, search and install `MFRC522` by GithubCommunity
 
-**Using PlatformIO (Recommended):**
+**Using PlatformIO:**
 1. Install VS Code
 2. Install PlatformIO extension
 3. Create a new project, select ESP32 board
@@ -341,9 +395,10 @@ lib_deps =
     miguelbalboa/MFRC522@^1.4.10
 ```
 
-### Flashing Each Reader
+### Flashing Each Reader (manual path)
 
-You need one ESP32 per arcade machine. For each reader:
+You need one ESP32 per arcade machine. For each reader (if you are not using the
+in-app programmer from Option A):
 
 1. Change `READER_ID` to a unique value (e.g., `reader-01`, `reader-02`, etc.)
 2. Make sure `WIFI_SSID` and `WIFI_PASSWORD` match your network
@@ -373,8 +428,64 @@ You need one ESP32 per arcade machine. For each reader:
    - **Name**: The arcade machine name (e.g., "Pac-Man")
    - **Reader ID**: Must match `READER_ID` in the ESP32 firmware exactly (e.g., `reader-01`)
    - **Location**: Optional (e.g., "Left wall")
+   - **OBS Server** and **OBS Source Name**: Optional — see [OBS Integration](#obs-integration-live-player-names)
 5. Click **Add Machine**
 6. Repeat for each arcade machine/reader pair
+
+To check a reader: add a player, assign a badge (Players > Assign Badge), then
+scan the badge on the reader. The machine's player name updates in OBS (if
+configured) and appears on the Dashboard > Active Players.
+
+---
+
+## OBS Integration (Live Player Names)
+
+Version 1.3+ can show the **current player's name on each machine** in OBS.
+When a badge is scanned on a machine, the app updates a text source in OBS with
+that player's name — perfect for "Now Playing" overlays.
+
+### Requirements
+
+- OBS Studio 28+ with the **obs-websocket 5.x** feature enabled
+  (Settings > Tools > WebSocket Server, default port `4455`, auth can be on or off).
+- The computer running the app does **not** need to be running OBS itself — the
+  app connects to any OBS instance on your network (e.g. the streaming PC).
+
+### Setup
+
+1. In the sidebar, open **OBS Connection**.
+2. Add a server: name, host/IP of the OBS machine, port (default `4455`), and
+   the WebSocket password (if auth is enabled; stored locally).
+3. Click **Test** to verify the connection. Use **Test Text** to push a sample
+   string into a text source to confirm it lands in OBS.
+4. In **Machines**, set each machine's **OBS Server** (choose the server) and
+   **OBS Source Name** (the text source name in OBS, e.g. `Player Name`).
+5. In OBS, add a **Text (GDI+)** source with exactly that name for the machine's
+   overlay, and set its content to anything (the app overwrites it on each scan).
+6. Done — on every successful check-in the source text becomes the player's name.
+   It is cleared/updated when the player switches machines.
+
+### Notes
+
+- Support for multiple OBS servers: each machine can point at a different server/source.
+- Connections are made on demand; if OBS is offline the scan still works, the
+  text just isn't updated.
+
+---
+
+## Live Scoreboard
+
+The app serves a web scoreboard you can put on any screen (browser, smart TV,
+second monitor):
+
+1. Open the sidebar **Scoreboard** to see the built-in view, or click
+   **Open Scoreboard ↗** in the sidebar to open the external page.
+2. The scoreboard URL is `http://<your-computer-IP>:3001/` — open it from any
+   device on the same network (e.g. a wall-mounted TV in kiosk/fullscreen mode).
+3. The scoreboard shows live rankings by total score, best score, and who is
+   currently playing. Your LAN IP is shown on the ESP32 Setup screen if you need it.
+4. Optional divisions: add divisions in **Settings** (e.g. "Beginner", "Pro") and
+   the sidebar gets per-division scoreboard links.
 
 ---
 
@@ -448,7 +559,7 @@ After a successful scan, the Dashboard in the app should show:
 - [ ] Monitor the Dashboard for live activity
 - [ ] If a reader goes offline, check its Serial Monitor for WiFi errors
 - [ ] Register any late players as they arrive
-- [ ] Keep a backup of the database file (`data/tournament.db`)
+- [ ] Keep a backup of the database file (`data/tournament.db` in the app's data folder, see [First Launch](#first-launch))
 
 ### Power Tips
 
@@ -484,6 +595,14 @@ After a successful scan, the Dashboard in the app should show:
 - Windows Defender may block unsigned apps
 - Click More info > Run anyway
 - Or temporarily disable real-time protection
+
+### OBS player name isn't updating
+- On **OBS Connection**, click **Test** — fix host/port/password until it succeeds
+- Confirm the machine's **OBS Server** and **OBS Source Name** are set on the machine
+- Make sure the text source name in OBS matches the machine's **OBS Source Name** exactly
+- Open OBS > Tools > WebSocket Server Settings and confirm the server is enabled
+  (and the port matches)
+- Scans still work even if OBS is offline — the name just won't update
 
 ### Multiple badges triggering at once
 - Keep RFID readers at least 2 feet apart to avoid cross-reads
