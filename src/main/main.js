@@ -2,8 +2,6 @@ const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
-app.disableHardwareAcceleration();
-
 const Store = require('electron-store');
 const store = new Store();
 
@@ -41,6 +39,14 @@ function createWindow() {
   } else {
     mainWindow.loadURL('http://localhost:5173');
     mainWindow.webContents.openDevTools();
+  }
+
+  if (app.isPackaged) {
+    mainWindow.webContents.on('before-input-event', (event, input) => {
+      if (input.type === 'keyDown' && input.key === 'F12') {
+        mainWindow.webContents.toggleDevTools();
+      }
+    });
   }
 
   mainWindow.on('closed', () => {
