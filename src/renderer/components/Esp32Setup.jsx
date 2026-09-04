@@ -74,7 +74,10 @@ function Esp32Setup({ apiUrl }) {
                   {installing ? 'Installing...' : 'Install PlatformIO'}
                 </button>
               )} />
-            <PrereqRow label="Python" ok={prereqs.python.installed} detail={prereqs.python.path} />
+            <PrereqRow label="Python" ok={prereqs.python.installed}
+              detail={prereqs.python.installed
+                ? `${prereqs.python.path}${prereqs.python.version ? ` (${prereqs.python.version})` : ''}`
+                : (prereqs.python.note || 'Python 3 not found')} />
             <PrereqRow label="esptool (comes with PlatformIO)" ok={prereqs.esptool.installed} detail={prereqs.esptool.path} />
             <PrereqRow label="Serial port available"
               ok={prereqs.serialPortsPresent}
