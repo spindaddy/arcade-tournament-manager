@@ -2,8 +2,22 @@ const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
-const Store = require('electron-store');
-const store = new Store();
+// Lightweight JSON store. (electron-store v8 wedges the main process when the
+// app is run from source in dev under Electron 35, so use files directly.)
+const store = (() => {
+  const file = path.join(app.getPath('userData'), 'store.json');
+  let data = {};
+  try {
+    if (fs.existsSync(file)) data = JSON.parse(fs.readFileSync(file, 'utf8'));
+  } catch (e) { data = {}; }
+  return {
+    get(key) { return data[key]; },
+    set(key, value) {
+      data[key] = value;
+      try { fs.writeFileSync(file, JSON.stringify(data, null, 2)); } catch (e) { /* ignore */ }
+    }
+  };
+})();
 
 let mainWindow;
 
@@ -61,12 +75,12 @@ app.whenReady().then(() => {
   createWindow();
 
   startApiServer();
+});
 
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow();
-    }
-  });
+app.on('activate', () => {
+  if (BrowserWindow.getAllWindows().length === 0) {
+    createWindow();
+  }
 });
 
 app.on('window-all-closed', () => {
