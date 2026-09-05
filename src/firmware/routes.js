@@ -1,6 +1,6 @@
 const express = require('express');
 const { v4: uuidv4 } = require('uuid');
-const { platformioAvailable, buildFirmware, flashFirmware, findPio, findEsptool, listPorts, startMonitor } = require('./flasher');
+const { platformioAvailable, buildFirmware, flashFirmware, findPio, findEsptool, listPorts, probeChip, startMonitor } = require('./flasher');
 const { checkPrereqs, installPlatformio, installPython } = require('./prerequisites');
 const { generateIno } = require('./generator');
 
@@ -23,6 +23,13 @@ function registerFirmwareRoutes(app) {
   router.get('/ports', async (req, res) => {
     const ports = await listPorts();
     res.json({ ports });
+  });
+
+  // Identify the chip on a specific serial port via esptool.
+  router.post('/probe-chip', async (req, res) => {
+    const port = req.body && req.body.port;
+    if (!port) return res.status(400).json({ error: 'port required' });
+    res.json(await probeChip(String(port)));
   });
 
   // Check for ESP32-programming prerequisites.

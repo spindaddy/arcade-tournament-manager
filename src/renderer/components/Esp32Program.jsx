@@ -6,6 +6,7 @@ function Esp32Program({ apiUrl }) {
     password: '',
     serverUrl: '',
     readerId: 'reader-01',
+    mcu: 'esp32',
     flash: true
   });
   const [toolStatus, setToolStatus] = useState(null);
@@ -18,6 +19,9 @@ function Esp32Program({ apiUrl }) {
   const [busy, setBusy] = useState(false);
   const [preview, setPreview] = useState(null);
   const [doneStatus, setDoneStatus] = useState(null);
+  const [chipInfo, setChipInfo] = useState(null);
+  const [probing, setProbing] = useState(false);
+  const probedPortRef = useRef(null);
   const outputRef = useRef(null);
 
   useEffect(() => {
@@ -52,8 +56,34 @@ function Esp32Program({ apiUrl }) {
     password: form.password,
     serverUrl: form.serverUrl,
     readerId: form.readerId,
+    mcu: form.mcu,
     port
   });
+
+  const doProbe = async () => {
+    if (!port) return;
+    probedPortRef.current = port;
+    setProbing(true);
+    setChipInfo(null);
+    try {
+      const r = await fetch(`${apiUrl}/firmware/probe-chip`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ port })
+      });
+      setChipInfo(await r.json());
+    } catch (e) {
+      setChipInfo({ ok: false, error: e.message });
+    } finally {
+      setProbing(false);
+    }
+  };
+
+  // Auto-detect the chip whenever a port becomes selected.
+  useEffect(() => {
+    if (port && probedPortRef.current !== port) doProbe();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [port]);
 
   const doPreview = async () => {
     setPreview(null);
@@ -137,7 +167,7 @@ function Esp32Program({ apiUrl }) {
   return (
     <div>
       <div className="page-header">
-        <h1>ESP32 Program</h1>
+        <h1>ESP32 / ESP8266 Program</h1>
         <p>Configure, build, flash, and monitor the RFID reader firmware.</p>
       </div>
 
@@ -175,7 +205,44 @@ function Esp32Program({ apiUrl }) {
                 ))}
               </select>
               <button className="btn btn-secondary" onClick={loadPorts}>Refresh</button>
+              <button className="btn btn-secondary" onClick={doProbe} disabled={!port || probing}>
+                {probing ? 'Detecting…' : 'Detect Chip Type'}
+              </button>
             </div>
+            {probing && (
+              <span style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>
+                Contacting chip on {port}…
+              </span>
+            )}
+            {chipInfo && !probing && (chipInfo.ok ? (
+              <span style={{ color: 'var(--success, #4caf50)', fontSize: '13px' }}>
+                Detected: <strong>{chipInfo.module}</strong>
+                {chipInfo.chipType && chipInfo.chipType !== chipInfo.module ? ` (${chipInfo.chipType})` : ''}
+                {chipInfo.chipId ? ` — Chip ID 0x${chipInfo.chipId}` : ''}
+                {chipInfo.mac ? ` · MAC ${chipInfo.mac}` : ''}
+              </span>
+            ) : (
+              <span style={{ color: '#e57373', fontSize: '13px' }}>
+                Could not identify chip: {chipInfo.error}. Is the board powered via USB and the
+                right port selected?
+              </span>
+            ))}
+            {chipInfo && chipInfo.ok && chipInfo.chipType && /esp8266/i.test(chipInfo.chipType) !== (form.mcu === 'esp8266') && (
+              <span style={{ color: '#e57373', fontSize: '13px' }}>
+                {/esp8266/i.test(chipInfo.chipType)
+                  ? `This is an ESP8266 — set the Board below to “ESP8266 NodeMCU” before flashing.`
+                  : `This looks like an ESP32 — you can leave the Board below on “ESP32 DevKit”.`}
+              </span>
+            )}
+          </label>
+          <label>Board
+            <select value={form.mcu} onChange={set('mcu')} style={{ maxWidth: '320px' }}>
+              <option value="esp32">ESP32 DevKit (esp32dev)</option>
+              <option value="esp8266">ESP8266 NodeMCU (nodemcuv2)</option>
+            </select>
+            <span style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>
+              {' '}Must match the chip on your board — see the detected chip type above.
+            </span>
           </label>
           <label>Wi-Fi SSID
             <input type="text" value={form.ssid} onChange={set('ssid')} placeholder="MyArcadeWiFi" />

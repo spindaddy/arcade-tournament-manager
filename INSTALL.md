@@ -154,7 +154,7 @@ The IP will look like `192.168.1.100` or `10.0.0.50`. This is what you put in th
 
 ### Wiring
 
-Connect the MFRC522 to the ESP32:
+Connect the MFRC522 to an ESP32 (default pins used by the generated firmware):
 
 ```
 MFRC522 Pin    ESP32 Pin
@@ -169,16 +169,35 @@ RST        ->  GPIO 27
 3.3V       ->  3.3V
 ```
 
+**Have an ESP8266 NodeMCU board instead?** The app can generate + flash those
+too — just pick "ESP8266 NodeMCU" as the Board in **ESP32 Program**. NodeMCU
+uses its own pin labels:
+
+```
+MFRC522 Pin    ESP8266 NodeMCU Pin
+-----------    ------------------
+SDA (SS)   ->  D8  (GPIO15)
+SCK        ->  D5  (GPIO14)
+MOSI       ->  D7  (GPIO13)
+MISO       ->  D6  (GPIO12)
+IRQ        ->  Not connected
+GND        ->  GND
+RST        ->  D3  (GPIO0)
+3.3V       ->  3.3V
+```
+
 **Important:** The MFRC522 runs on 3.3V. Do NOT connect it to 5V.
 
 ### Buzzer (optional)
 
-Wire an **active** buzzer to GPIO 4 to get a 1-second beep when a player successfully checks in.
+Wire an **active** buzzer to the buzzer pin to get a 1-second beep when a player
+successfully checks in. The pin is GPIO 4 on ESP32 boards and D4 (GPIO2) on
+ESP8266 NodeMCU boards — it's shown in the generated firmware's comments.
 
 ```
-Active Buzzer    ESP32 Pin
+Active Buzzer    Board Pin
 -------------    ---------
-Positive (+) ->  GPIO 4
+Positive (+) ->  GPIO 4 (ESP32) or D4 / GPIO2 (ESP8266 NodeMCU)
 Negative (-) ->  GND
 ```
 
@@ -192,6 +211,7 @@ An active buzzer beeps whenever it has power, so the firmware drives GPIO 4 HIGH
 | ESP32-S3 | 2.4 GHz | Yes | ~$8 | Newer, more GPIO pins |
 | ESP32-C3 | 2.4 GHz | Yes | ~$4 | RISC-V, cheaper but fewer pins |
 | NodeMCU-32S | 2.4 GHz | Yes | ~$6 | breadboard-friendly |
+| ESP8266 NodeMCU (ESP-12E) | 2.4 GHz | No | ~$4 | Fully supported by the app (not an ESP32 — uses the ESP8266 pin map above) |
 
 ---
 
@@ -200,7 +220,8 @@ An active buzzer beeps whenever it has power, so the firmware drives GPIO 4 HIGH
 There are two ways to program the readers:
 
 - **Option A (recommended): in-app** — the app generates finished firmware and
-  flashes it over USB itself. Requires nothing but the app and the ESP32.
+  flashes it over USB itself. Works with **ESP32 DevKit** boards and
+  **ESP8266 NodeMCU** boards.
 - **Option B: manual** — traditional VS Code + PlatformIO or Arduino IDE.
 
 ### Option A: In-App Programming (Recommended)
@@ -216,24 +237,28 @@ toolchain automatically.
      admin rights needed, added to PATH automatically). The "python" shortcut in
      the Microsoft Store is only a stub and will not work — always use the app's
      install button (or python.org).
-   - **Serial port available** — connect the ESP32 over USB; the app lists ports
-     and flags ones that look like an ESP32 (CP210x/CH340 drivers).
-2. Connect the ESP32 to your computer with a USB cable.
-3. Go to **ESP32 Program** and fill in:
+   - **Serial port available** — connect the board over USB; the app lists ports
+     and flags ones that look like an ESP32/ESP8266 (CP210x/CH340 drivers).
+2. Connect the board to your computer with a USB cable.
+3. In **ESP32 Program**, first select the serial port — the app auto-detects the
+   chip (e.g. `ESP32-D0WD-V3` or `ESP8266EX`) using esptool and shows it under
+   the port picker, so you can confirm you picked the right board.
+4. Fill in:
+   - **Board** — **ESP32 DevKit** or **ESP8266 NodeMCU**; must match your chip
+     (the app warns you if the detected chip type disagrees with your choice).
    - **WiFi Name** and **WiFi Password** (2.4 GHz network — see [Network Setup](#network-setup)).
    - **Server URL** — auto-filled as `http://<your-IP>:3001/api/scan`; adjust if needed.
    - **Reader ID** — a unique ID per reader (e.g. `reader-01`). This must match the
      **Reader ID** you register for that machine in the app later.
-   - **Serial Port** — pick the detected ESP32 port.
-4. Click **Preview** to inspect the generated `.ino` source if you like.
-5. Click **Build & Flash** — the app compiles and uploads the firmware over USB.
-6. Use **Serial Monitor** to watch live output at 115200 baud
+5. Click **Preview** to inspect the generated `.ino` source if you like.
+6. Click **Build & Flash** — the app compiles and uploads the firmware over USB.
+7. Use **Serial Monitor** to watch live output at 115200 baud
    (`Ready to scan badges...` means it connected to your WiFi and is working).
 
 Repeat for each reader, changing only the **Reader ID**.
 
-The generated firmware uses the wiring pins below (SS=GPIO 5, RST=GPIO 27,
-buzzer=GPIO 4) and beeps 1 second on a successful check-in.
+The generated firmware uses the wiring pins further down and beeps 1 second on
+a successful check-in.
 
 ### Option B: Manual (VS Code / Arduino IDE)
 

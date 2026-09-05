@@ -8,8 +8,8 @@ A desktop application for managing arcade tournaments with RFID badge tracking. 
 - **Tournament Management** - Create tournaments, track scores and brackets
 - **Real-Time Game Tracking** - See who is playing which machine right now
 - **RFID Badge System** - Players scan badges at machines to check in/out
-- **ESP32 Integration** - WiFi-connected RFID readers report scans to the app
-- **In-App Firmware Flashing** - Generate, build, and flash ESP32 firmware over USB from inside the app (installs PlatformIO/Python automatically)
+- **ESP32 / ESP8266 Integration** - WiFi-connected RFID readers (ESP32 DevKit or ESP8266 NodeMCU) report scans to the app
+- **In-App Firmware Flashing** - Generate, build, and flash ESP32/ESP8266 firmware over USB from inside the app (installs PlatformIO/Python automatically)
 - **OBS Live Player Names** - Push the current player's name to any OBS instance's text source per machine (obs-websocket 5.x)
 - **Live Web Scoreboard** - `http://<ip>:3001/` rankings view for wall screens, with optional divisions
 - **Dashboard** - Live stats: active players, scans today, current sessions
@@ -210,7 +210,7 @@ POST /api/scan
 - **Vite 5** - Build tooling
 - **Express** - API server for ESP32 communication
 - **SQLite** (better-sqlite3) - Local database
-- **ESP32 + MFRC522** - RFID badge readers
+- **ESP32 / ESP8266 + MFRC522** - RFID badge readers
 
 ## License
 
