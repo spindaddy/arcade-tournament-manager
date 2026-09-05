@@ -226,8 +226,8 @@ function startMonitor(port, onLog) {
   const script = `
 import serial, sys, time
 try:
-    s = serial.Serial('${port.replace(/'/g, "\\'")}', 115200, timeout=0.1)
-    sys.stdout.write('Listening on ${port.replace(/'/g, "\\'")} @ 115200...\\n')
+    s = serial.Serial('${port.replace(/'/g, "\\'")}', 74880, timeout=0.1)
+    sys.stdout.write('Listening on ${port.replace(/'/g, "\\'")} @ 74880...\\n')
     sys.stdout.flush()
     while True:
         data = s.read(4096)

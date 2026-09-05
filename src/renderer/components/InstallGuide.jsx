@@ -382,7 +382,7 @@ lib_deps =
         <div className="troubleshoot-item">
           <h4>Badge scans but app doesn't show it</h4>
           <ul>
-            <li>Check the ESP32 Serial Monitor for HTTP error codes</li>
+            <li>Check the Serial Monitor for HTTP error codes</li>
             <li>Verify the server IP is correct in the firmware</li>
             <li>Make sure port 3001 is not blocked by firewall</li>
             <li>Check that the Reader ID matches what's registered in the app</li>

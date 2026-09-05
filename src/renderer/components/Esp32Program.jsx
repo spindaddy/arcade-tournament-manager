@@ -143,7 +143,7 @@ function Esp32Program({ apiUrl }) {
     setDoneStatus(null);
     setMonitorOn(true);
     setBusy(true);
-    setOutput(['Listening on ' + port + ' @ 115200... (press Stop to end)']);
+    setOutput(['Listening on ' + port + ' @ 74880... (press Stop to end)']);
     const r = await fetch(`${apiUrl}/firmware/monitor/start`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -284,7 +284,7 @@ function Esp32Program({ apiUrl }) {
             Success — firmware flashed.
           </h2>
           <p style={{ color: 'var(--text-secondary)' }}>
-            Click <strong>Open Serial Monitor</strong> on port <code>{port}</code> to watch the ESP32 boot up.
+            Click <strong>Open Serial Monitor</strong> on port <code>{port}</code> to watch the board boot up.
           </p>
         </div>
       )}
