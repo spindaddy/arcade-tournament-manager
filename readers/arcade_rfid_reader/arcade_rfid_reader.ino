@@ -15,11 +15,10 @@
  *   RST       ->  D1 (GPIO 5)
  *   3.3V      ->  3.3V
  *
- * ACTIVE piezo buzzer (short beep on successful check-in).
- * Use a transistor/keyed driver for an active buzzer, else it may brown-out
- * the ESP on power-up:
- *   Positive (+)  ->  D6 (GPIO 12)
- *   Negative (-)  ->  GND
+ * Piezo buzzer (short beep on successful check-in). Active-LOW: sounds when
+ * the pin is LOW, silent when HIGH, so idle is HIGH (off) and each scan
+ * pulses LOW briefly:
+ *   Positive (+)  ->  D0 (GPIO 16)
  *   Negative (-)  ->  GND
  *
  * ========== CONFIGURE THESE FOR EACH READER ==========
@@ -42,11 +41,15 @@ const char* READER_ID      = "reader-01";  // Unique per reader!
 
 #define SS_PIN       D2   // GPIO4
 #define RST_PIN      D1   // GPIO5
-#define BUZZER_PIN   D6   // GPIO12 (NOT D0/GPIO16 — floats high across reset)
+#define BUZZER_PIN   D0   // GPIO16 (active-low piezo: sounds when LOW)
 #define LED_PIN      D4   // GPIO2 onboard blue LED (active-low) or external LED
 
 #define LED_ON   LOW
 #define LED_OFF  HIGH
+
+// Piezo is active-LOW (sounds when the pin is LOW, silent when HIGH).
+#define BUZZER_ON   LOW
+#define BUZZER_OFF  HIGH
 
 MFRC522 mfrc522(SS_PIN, RST_PIN);
 WiFiClient client;
@@ -67,18 +70,18 @@ void flashLed(int onMs) {
 
 // Recognized badge (checked_in / already_checkedin / switched_game)
 void recognizedFeedback() {
-  digitalWrite(BUZZER_PIN, HIGH);
+  digitalWrite(BUZZER_PIN, BUZZER_ON);
   digitalWrite(LED_PIN, LED_ON);
   delay(150);
   digitalWrite(LED_PIN, LED_OFF);
-  digitalWrite(BUZZER_PIN, LOW);
+  digitalWrite(BUZZER_PIN, BUZZER_OFF);
 }
 
 // Badge not registered to any player
 void unknownFeedback() {
   for (int i = 0; i < 2; i++) {
-    digitalWrite(BUZZER_PIN, HIGH); delay(80);
-    digitalWrite(BUZZER_PIN, LOW);  delay(60);
+    digitalWrite(BUZZER_PIN, BUZZER_ON); delay(80);
+    digitalWrite(BUZZER_PIN, BUZZER_OFF);  delay(60);
     flashLed(60);
     delay(60);
   }
@@ -87,8 +90,8 @@ void unknownFeedback() {
 // Server unreachable / HTTP error
 void failFeedback() {
   for (int i = 0; i < 3; i++) {
-    digitalWrite(BUZZER_PIN, HIGH); delay(60);
-    digitalWrite(BUZZER_PIN, LOW);  delay(40);
+    digitalWrite(BUZZER_PIN, BUZZER_ON); delay(60);
+    digitalWrite(BUZZER_PIN, BUZZER_OFF);  delay(40);
     flashLed(50);
     delay(50);
   }
@@ -123,7 +126,7 @@ int getid() {
 void setup() {
   Serial.begin(115200);
   pinMode(BUZZER_PIN, OUTPUT);
-  digitalWrite(BUZZER_PIN, LOW);
+  digitalWrite(BUZZER_PIN, BUZZER_OFF);
   pinMode(LED_PIN, OUTPUT);
   digitalWrite(LED_PIN, LED_OFF);
 

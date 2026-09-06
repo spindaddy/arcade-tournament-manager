@@ -3,10 +3,10 @@ const path = require('path');
 
 // Reader firmware target: ESP8266 NodeMCU (ESP-12E).
 // Wiring per the tournament build: SS = D2 (GPIO4), RST = D1 (GPIO5),
-// buzzer = D6 (GPIO12) — NOT D0/GPIO16: GPIO16 floats high across ESP8266
-// reset and can't reliably drive an active piezo, causing stuck-on / flaky beeps.
-// Default pins (NodeMCU): ss=D4, rst=D3, buzzer=D6.
-const DEFAULT_PINS = { ss: 4, rst: 5, buzzer: 12 };
+// buzzer = D0 (GPIO16).
+// Piezo buzzer is ACTIVE-LOW: sounds when the pin is LOW, silent when HIGH.
+// Idle keeps it OFF (HIGH); each feedback pulse drops it LOW briefly.
+const DEFAULT_PINS = { ss: 4, rst: 5, buzzer: 16 };
 
 const WIRING = [
   '  SDA (SS)  ->  D2 (GPIO4)',
@@ -49,11 +49,10 @@ function generateIno(config = {}) {
  * WIRING (MFRC522 -> ESP8266 NodeMCU):
 ${WIRING.join('\n')}
  *
- * ACTIVE piezo buzzer (short beep on successful check-in).
- * Use a transistor/keyed driver for an active buzzer, else it may brown-out
- * the ESP on power-up:
- *   Positive (+)  ->  D6 (GPIO${pins.buzzer})
- *   Negative (-)  ->  GND
+ * Piezo buzzer (short beep on successful check-in). Driven ACTIVE-LOW:
+ * piezo is wired/behaves as sounding when the pin is LOW, silent when HIGH,
+ * so idle is HIGH (off) and each scan pulses LOW briefly:
+ *   Positive (+)  ->  D0 (GPIO${pins.buzzer})
  *   Negative (-)  ->  GND
  * ========================================================
  */
@@ -71,11 +70,15 @@ const char* READER_ID      = "${escUid(readerId)}";  // Unique per reader!
 
 #define SS_PIN       ${pins.ss}   // D2
 #define RST_PIN      ${pins.rst}   // D1
-#define BUZZER_PIN   ${pins.buzzer}  // D6
+#define BUZZER_PIN   ${pins.buzzer}  // D0
 #define LED_PIN      D4               // GPIO2 onboard blue LED (active-low) or external LED
 
 #define LED_ON   LOW
 #define LED_OFF  HIGH
+
+// Piezo is active-LOW (sounds when pin is LOW, silent when HIGH).
+#define BUZZER_ON   LOW
+#define BUZZER_OFF  HIGH
 
 MFRC522 mfrc522(SS_PIN, RST_PIN);
 WiFiClient client;
@@ -96,18 +99,18 @@ void flashLed(int onMs) {
 
 // Recognized badge (checked_in / already_checkedin / switched_game)
 void recognizedFeedback() {
-  digitalWrite(BUZZER_PIN, HIGH);
+  digitalWrite(BUZZER_PIN, BUZZER_ON);
   digitalWrite(LED_PIN, LED_ON);
   delay(150);
   digitalWrite(LED_PIN, LED_OFF);
-  digitalWrite(BUZZER_PIN, LOW);
+  digitalWrite(BUZZER_PIN, BUZZER_OFF);
 }
 
 // Badge not registered to any player
 void unknownFeedback() {
   for (int i = 0; i < 2; i++) {
-    digitalWrite(BUZZER_PIN, HIGH); delay(80);
-    digitalWrite(BUZZER_PIN, LOW);  delay(60);
+    digitalWrite(BUZZER_PIN, BUZZER_ON); delay(80);
+    digitalWrite(BUZZER_PIN, BUZZER_OFF);  delay(60);
     flashLed(60);
     delay(60);
   }
@@ -116,8 +119,8 @@ void unknownFeedback() {
 // Server unreachable / HTTP error
 void failFeedback() {
   for (int i = 0; i < 3; i++) {
-    digitalWrite(BUZZER_PIN, HIGH); delay(60);
-    digitalWrite(BUZZER_PIN, LOW);  delay(40);
+    digitalWrite(BUZZER_PIN, BUZZER_ON); delay(60);
+    digitalWrite(BUZZER_PIN, BUZZER_OFF);  delay(40);
     flashLed(50);
     delay(50);
   }
@@ -152,7 +155,7 @@ int getid() {
 void setup() {
   Serial.begin(115200);
   pinMode(BUZZER_PIN, OUTPUT);
-  digitalWrite(BUZZER_PIN, LOW);
+  digitalWrite(BUZZER_PIN, BUZZER_OFF);
   pinMode(LED_PIN, OUTPUT);
   digitalWrite(LED_PIN, LED_OFF);
 
