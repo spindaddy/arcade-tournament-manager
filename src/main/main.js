@@ -434,7 +434,7 @@ function startApiServer() {
       return { ok: warnings.length === 0, warnings };
     }
 
-    apiApp.post('/api/scan', (req, res) => {
+    apiApp.post('/api/scan', async (req, res) => {
       const { badge_uid, reader_id } = req.body;
       if (!badge_uid || !reader_id) {
         return res.status(400).json({ error: 'badge_uid and reader_id required' });
@@ -459,30 +459,46 @@ function startApiServer() {
           const pacing = db.prepare('SELECT name FROM players WHERE id = ?').get(badge.player_id);
           if (activeSession) {
             db.prepare(`UPDATE game_sessions SET end_time = datetime('now') WHERE id = ?`).run(activeSession.id);
-            clearObsSource(activeSession.machine_id);
+            await clearObsSource(activeSession.machine_id);
             return res.json({ status: 'checked_out', player_id: badge.player_id, player_name: pacing ? pacing.name : 'Unknown', reader_id, message: 'Reader has no machine assigned — player set inactive' });
           }
           return res.json({ status: 'inactive', player_id: badge.player_id, player_name: pacing ? pacing.name : 'Unknown', reader_id, message: 'Reader has no machine assigned' });
         }
 
-        if (activeSession) {
-          if (activeSession.machine_id !== machine.id) {
-            db.prepare(`UPDATE game_sessions SET end_time = datetime('now') WHERE id = ?`).run(activeSession.id);
-            const newSessionId = uuidv4();
-            db.prepare(`INSERT INTO game_sessions (id, player_id, machine_id, start_time) VALUES (?, ?, ?, datetime('now'))`).run(newSessionId, badge.player_id, machine.id);
-            const sp = db.prepare('SELECT name FROM players WHERE id = ?').get(badge.player_id);
-            clearObsSource(activeSession.machine_id);
-            pushObsUpdate(reader_id, sp ? sp.name : 'Unknown');
-            return res.json({ status: 'switched_game', player_id: badge.player_id, new_machine: machine.name, previous_machine_id: activeSession.machine_id });
-          }
-          return res.json({ status: 'already_checkedin', player_id: badge.player_id, machine: machine.name });
+        // If a different player is currently on this machine, end their session
+        // so only one player is active on a cabinet at a time (their OBS source
+        // is cleared below once the new player is placed on it).
+        let bumpedPlayer = null;
+        const occupant = db.prepare(`SELECT * FROM game_sessions WHERE player_id != ? AND machine_id = ? AND end_time IS NULL ORDER BY start_time DESC LIMIT 1`).get(badge.player_id, machine.id);
+        if (occupant) {
+          bumpedPlayer = db.prepare('SELECT name FROM players WHERE id = ?').get(occupant.player_id);
+          db.prepare(`UPDATE game_sessions SET end_time = datetime('now') WHERE id = ?`).run(occupant.id);
+        }
+
+        // Same player, still on this same machine -> already checked in.
+        if (activeSession && activeSession.machine_id === machine.id) {
+          const acp = db.prepare('SELECT name FROM players WHERE id = ?').get(badge.player_id);
+          await pushObsUpdate(reader_id, acp ? acp.name : 'Unknown');
+          return res.json({ status: 'already_checkedin', player_id: badge.player_id, machine: machine.name, bumped_player: bumpedPlayer ? bumpedPlayer.name : null });
+        }
+
+        if (activeSession && activeSession.machine_id !== machine.id) {
+          db.prepare(`UPDATE game_sessions SET end_time = datetime('now') WHERE id = ?`).run(activeSession.id);
+          const newSessionId = uuidv4();
+          db.prepare(`INSERT INTO game_sessions (id, player_id, machine_id, start_time) VALUES (?, ?, ?, datetime('now'))`).run(newSessionId, badge.player_id, machine.id);
+          const sp = db.prepare('SELECT name FROM players WHERE id = ?').get(badge.player_id);
+          await clearObsSource(activeSession.machine_id);
+          if (occupant) await clearObsSource(occupant.machine_id);
+          await pushObsUpdate(reader_id, sp ? sp.name : 'Unknown');
+          return res.json({ status: 'switched_game', player_id: badge.player_id, new_machine: machine.name, previous_machine_id: activeSession.machine_id, bumped_player: bumpedPlayer ? bumpedPlayer.name : null });
         }
 
         const sessionId = uuidv4();
         db.prepare(`INSERT INTO game_sessions (id, player_id, machine_id, start_time) VALUES (?, ?, ?, datetime('now'))`).run(sessionId, badge.player_id, machine.id);
         const player = db.prepare('SELECT name FROM players WHERE id = ?').get(badge.player_id);
-        pushObsUpdate(reader_id, player ? player.name : 'Unknown');
-        res.json({ status: 'checked_in', player_name: player ? player.name : 'Unknown', machine: machine.name, session_id: sessionId });
+        if (occupant) await clearObsSource(occupant.machine_id);
+        await pushObsUpdate(reader_id, player ? player.name : 'Unknown');
+        res.json({ status: 'checked_in', player_name: player ? player.name : 'Unknown', machine: machine.name, session_id: sessionId, bumped_player: bumpedPlayer ? bumpedPlayer.name : null });
       } catch (error) {
         console.error('Scan error:', error);
         res.status(500).json({ error: 'Internal server error' });
