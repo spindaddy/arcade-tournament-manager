@@ -8,8 +8,8 @@ import ActiveSessions from './components/ActiveSessions';
 import InstallGuide from './components/InstallGuide';
 import Scoreboard from './components/Scoreboard';
 import Settings from './components/Settings';
-import Esp32Setup from './components/Esp32Setup';
-import Esp32Program from './components/Esp32Program';
+import ReaderSetup from './components/ReaderSetup';
+import ReaderProgram from './components/ReaderProgram';
 import ObsSetup from './components/ObsSetup';
 
 const API_URL = 'http://localhost:3001/api';
@@ -111,10 +111,10 @@ function App() {
               <NavLink to="/settings">Settings</NavLink>
             </li>
             <li>
-              <NavLink to="/esp32" end>ESP32 Setup</NavLink>
+              <NavLink to="/readers" end>Reader Setup</NavLink>
             </li>
             <li>
-              <NavLink to="/esp32/program">ESP32 Program</NavLink>
+              <NavLink to="/readers/program">Reader Program</NavLink>
             </li>
             <li>
               <NavLink to="/obs">OBS Connection</NavLink>
@@ -157,8 +157,8 @@ function App() {
             ))}
             <Route path="/active" element={<ActiveSessions apiUrl={API_URL} />} />
             <Route path="/settings" element={<Settings apiUrl={API_URL} currentTheme={theme} onThemeChange={setTheme} onDivisionsChange={fetchDivisions} />} />
-            <Route path="/esp32" element={<Esp32Setup apiUrl={API_URL} />} />
-            <Route path="/esp32/program" element={<Esp32Program apiUrl={API_URL} />} />
+            <Route path="/readers" element={<ReaderSetup apiUrl={API_URL} />} />
+            <Route path="/readers/program" element={<ReaderProgram apiUrl={API_URL} />} />
             <Route path="/obs" element={<ObsSetup apiUrl={API_URL} />} />
             <Route path="/guide" element={<InstallGuide />} />
           </Routes>

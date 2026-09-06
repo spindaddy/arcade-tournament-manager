@@ -1,6 +1,6 @@
 # Arcade Tournament Manager
 
-A desktop application for managing arcade tournaments with RFID badge tracking. Players register, get assigned RFID badges, and scan in at arcade machines using ESP32 readers. The app tracks who is playing what in real-time.
+A desktop application for managing arcade tournaments with RFID badge tracking. Players register, get assigned RFID badges, and scan in at arcade machines using ESP8266 readers. The app tracks who is playing what in real-time.
 
 ## Features
 
@@ -8,8 +8,8 @@ A desktop application for managing arcade tournaments with RFID badge tracking. 
 - **Tournament Management** - Create tournaments, track scores and brackets
 - **Real-Time Game Tracking** - See who is playing which machine right now
 - **RFID Badge System** - Players scan badges at machines to check in/out
-- **ESP32 / ESP8266 Integration** - WiFi-connected RFID readers (ESP32 DevKit or ESP8266 NodeMCU) report scans to the app
-- **In-App Firmware Flashing** - Generate, build, and flash ESP32/ESP8266 firmware over USB from inside the app (installs PlatformIO/Python automatically)
+- **ESP8266 Integration** - WiFi-connected RFID readers (NodeMCU ESP8266) report scans to the app
+- **In-App Firmware Flashing** - Generate, build, and flash ESP8266 firmware over USB from inside the app (installs PlatformIO/Python automatically)
 - **OBS Live Player Names** - Push the current player's name to any OBS instance's text source per machine (obs-websocket 5.x)
 - **Live Web Scoreboard** - `http://<ip>:3001/` rankings view for wall screens, with optional divisions
 - **Dashboard** - Live stats: active players, scans today, current sessions
@@ -21,7 +21,7 @@ A desktop application for managing arcade tournaments with RFID badge tracking. 
 Player scans RFID badge at machine
         |
         v
-  ESP32 Reader reads badge UID
+  ESP8266 Reader reads badge UID
         |
         v
   POST to http://host:3001/api/scan
@@ -45,37 +45,37 @@ Go to [Releases](https://github.com/spindaddy/arcade-tournament-manager/releases
 | Linux | `.AppImage` |
 
 No additional software needs to be installed — Python and PlatformIO are
-installed automatically by the app when you program your first ESP32 reader.
+installed automatically by the app when you program your first reader.
 
 ## Quick Start
 
 1. Download and install the app for your OS
 2. Launch the app
 3. Register players and assign RFID badges
-4. Register each arcade machine with its ESP32 reader ID
-5. Go to **ESP32 Setup** and **ESP32 Program** to install the toolchain, generate
-   firmware, and flash each ESP32 over USB (or use the manual example below)
+4. Register each arcade machine with its reader ID
+5. Go to **Reader Setup** and **Reader Program** to install the toolchain, generate
+   firmware, and flash each reader over USB (or use the manual example below)
 6. Wire up the readers (see [INSTALL.md](INSTALL.md)) and they start reporting scans
 7. Watch the dashboard for live activity; add an [OBS connection](INSTALL.md#obs-integration-live-player-names) for live player names
 
-## ESP32 Firmware
+## ESP8266 Firmware
 
 A ready-to-use reference sketch is included in the repo:
 
 ```
-esp32/arcade_rfid_reader/
+readers/arcade_rfid_reader/
   arcade_rfid_reader.ino   # Arduino IDE sketch
   platformio.ini           # PlatformIO configuration
 ```
 
 This reads RFID badges, reports scans to the app, and beeps for 1 second on a
-successful check-in (active buzzer on GPIO 4). The same firmware is generated
-and flashed automatically by the app's **ESP32 Program** screen, so you normally
+successful check-in (active buzzer on D0). The same firmware is generated
+and flashed automatically by the app's **Reader Program** screen, so you normally
 never need to open VS Code or the Arduino IDE.
 
-- **In-app (recommended):** ESP32 Setup (auto-installs PlatformIO/Python) → ESP32 Program (Preview, Build & Flash, Serial Monitor)
+- **In-app (recommended):** Reader Setup (auto-installs PlatformIO/Python) → Reader Program (Preview, Build & Flash, Serial Monitor)
 - **Arduino IDE:** open `arcade_rfid_reader.ino`, set your WiFi credentials + server IP, flash
-- **PlatformIO:** open the `esp32/arcade_rfid_reader/` folder in VS Code, click Upload
+- **PlatformIO:** open the `readers/arcade_rfid_reader/` folder in VS Code, click Upload
 
 See [INSTALL.md](INSTALL.md) for full wiring diagrams, OBS and scoreboard setup.
 
@@ -138,7 +138,7 @@ arcade-tournament-manager/
     database/
       schema.js           # SQLite schema + database setup
     firmware/
-      generator.js        # ESP32 firmware generator (.ino + platformio.ini)
+      generator.js        # ESP8266 firmware generator (.ino + platformio.ini)
       prerequisites.js    # Python detection/install, PlatformIO install
       routes.js           # Firmware build/flash/monitor API routes
     obs/
@@ -155,16 +155,17 @@ arcade-tournament-manager/
         Tournaments.jsx   # Tournament creation and management
         Machines.jsx      # Arcade machine registration
         ObsSetup.jsx      # OBS server configuration
-        Esp32Setup.jsx    # Toolchain prerequisites (Python/PlatformIO)
-        Esp32Program.jsx  # Firmware generate/build/flash/serial monitor
+        ReaderSetup.jsx   # Toolchain prerequisites (Python/PlatformIO)
+        ReaderProgram.jsx # Firmware generate/build/flash/serial monitor
         ActiveSessions.jsx # Real-time active game tracking
+  readers/arcade_rfid_reader/  # Reference ESP8266 sketch (ino + platformio.ini)
   dist/renderer/          # Built React app (generated)
   release/                # Built installers (generated)
 ```
 
 ## API Endpoints
 
-The app runs an Express API server on port 3001. ESP32 devices use these endpoints:
+The app runs an Express API server on port 3001. Readers use these endpoints:
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
@@ -180,7 +181,7 @@ The app runs an Express API server on port 3001. ESP32 devices use these endpoin
 | POST | `/api/machines` | Register an arcade machine |
 | GET | `/api/sessions/active` | List active game sessions |
 
-Additional endpoints back the OBS connection and ESP32 tooling screens
+Additional endpoints back the OBS connection and reader tooling screens
 (`/api/obs/*` server CRUD + test/push, `/firmware/*` prerequisites, preview,
 flash, ports, serial monitor streaming).
 
@@ -208,9 +209,9 @@ POST /api/scan
 - **Electron 35** - Desktop app framework
 - **React 18** - UI components
 - **Vite 5** - Build tooling
-- **Express** - API server for ESP32 communication
+- **Express** - API server for reader communication
 - **SQLite** (better-sqlite3) - Local database
-- **ESP32 / ESP8266 + MFRC522** - RFID badge readers
+- **ESP8266 + MFRC522** - RFID badge readers
 
 ## License
 

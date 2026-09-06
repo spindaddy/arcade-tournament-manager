@@ -1,6 +1,6 @@
 const express = require('express');
 const { v4: uuidv4 } = require('uuid');
-const { platformioAvailable, buildFirmware, flashFirmware, findPio, findEsptool, listPorts, probeChip, startMonitor } = require('./flasher');
+const { platformioAvailable, buildFirmware, flashFirmware, findPio, listPorts, startMonitor } = require('./flasher');
 const { checkPrereqs, installPlatformio, installPython } = require('./prerequisites');
 const { generateIno } = require('./generator');
 
@@ -16,7 +16,7 @@ function registerFirmwareRoutes(app) {
   // Check that the flash tooling is present.
   router.get('/status', async (req, res) => {
     const available = await platformioAvailable();
-    res.json({ available, pio: findPio(), esptool: findEsptool() });
+    res.json({ available, pio: findPio() });
   });
 
   // List available serial ports.
@@ -25,14 +25,7 @@ function registerFirmwareRoutes(app) {
     res.json({ ports });
   });
 
-  // Identify the chip on a specific serial port via esptool.
-  router.post('/probe-chip', async (req, res) => {
-    const port = req.body && req.body.port;
-    if (!port) return res.status(400).json({ error: 'port required' });
-    res.json(await probeChip(String(port)));
-  });
-
-  // Check for ESP32-programming prerequisites.
+  // Check for reader-programming prerequisites.
   router.get('/prereqs', async (req, res) => {
     const report = await checkPrereqs();
     res.json(report);

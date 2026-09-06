@@ -51,7 +51,7 @@ app.get('/api/meta', (req, res) => {
   res.json({ title: tournament ? tournament.name : 'Arcade Tournament', theme: settings.theme || 'dark', tournament });
 });
 
-// Network connection info (LAN IP + URLs for ESP32 / web scoreboard)
+// Network connection info (LAN IP + URLs for readers / web scoreboard)
 app.get('/api/connection', (req, res) => {
   const ip = getLanIp();
   res.json({
@@ -63,7 +63,7 @@ app.get('/api/connection', (req, res) => {
   });
 });
 
-// Firmware generation + ESP32 flash endpoints
+// Firmware generation + reader flash endpoints
 registerFirmwareRoutes(app);
 
 // OBS websocket integration
@@ -82,7 +82,7 @@ async function pushObsUpdate(readerId, playerName) {
   }
 }
 
-// ESP32 RFID scan endpoint
+// RFID scan endpoint
 app.post('/api/scan', (req, res) => {
   const { badge_uid, reader_id } = req.body;
 

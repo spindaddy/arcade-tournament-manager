@@ -3,7 +3,7 @@ const fs = require('fs');
 const https = require('https');
 const os = require('os');
 const path = require('path');
-const { findPio, findEsptool, runStream, platformioAvailable } = require('./flasher');
+const { findPio, runStream, platformioAvailable } = require('./flasher');
 
 // Output from the Windows "app execution alias" stub that just opens the
 // Microsoft Store (signals Python is not actually installed).
@@ -156,10 +156,6 @@ async function checkPrereqs() {
       path: findPio()
     },
     python,
-    esptool: {
-      installed: platformio, // esptool ships with PlatformIO
-      path: findEsptool()
-    },
     serialPorts: ports,
     serialPortsPresent: ports.length > 0
   };
@@ -210,7 +206,7 @@ async function installPlatformio(onLog) {
   if (!python) {
     onLog && onLog('Python 3 is required to run the PlatformIO installer, but none was found.');
     if (process.platform === 'win32') {
-      onLog && onLog('  -> Click "Install Python" on the ESP32 Setup screen and this app will install it automatically.');
+      onLog && onLog('  -> Click "Install Python" on the Reader Setup screen and this app will install it automatically.');
       onLog && onLog('  -> Or install it from https://www.python.org/downloads/ and tick "Add Python to PATH" during setup.');
       onLog && onLog('Note: the "python" shortcut in the Microsoft Store is only a stub and will not work.');
     } else {

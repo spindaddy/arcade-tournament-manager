@@ -175,7 +175,7 @@ function Machines({ apiUrl }) {
                   required
                 />
                 <p style={{ color: 'var(--text-secondary)', fontSize: '13px', marginTop: '6px' }}>
-                  This must match the reader_id your ESP32 sends with each scan.
+                  This must match the reader_id your reader sends with each scan.
                 </p>
               </div>
               <div className="form-group">

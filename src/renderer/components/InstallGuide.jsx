@@ -29,8 +29,8 @@ function InstallGuide() {
   const sections = [
     { id: 'installing-the-app', label: 'Installing the App' },
     { id: 'network-setup', label: 'Network Setup' },
-    { id: 'esp32-hardware', label: 'ESP32 Hardware' },
-    { id: 'programming-the-esp32', label: 'Programming the ESP32' },
+    { id: 'reader-hardware', label: 'Reader Hardware' },
+    { id: 'programming-the-reader', label: 'Programming the Reader' },
     { id: 'configuring-readers', label: 'Configuring Readers' },
     { id: 'testing-the-setup', label: 'Testing the Setup' },
     { id: 'tournament-day-checklist', label: 'Tournament Checklist' },
@@ -78,15 +78,15 @@ function InstallGuide() {
         <pre><code>{`sudo dpkg -i arcade-tournament-manager_*.deb`}</code></pre>
 
         <h2 id="network-setup">Network Setup</h2>
-        <p>The ESP32 RFID readers communicate with the app over WiFi. Both the computer running the app and all ESP32 devices must be on the same network.</p>
+        <p>The ESP8266 RFID readers communicate with the app over WiFi. Both the computer running the app and all reader devices must be on the same 2.4 GHz network.</p>
 
         <h3>Option A: Same WiFi Network (Simple)</h3>
         <p>Best for: Home setups, small venues, single-room tournaments.</p>
         <ol>
           <li>Connect your computer to your WiFi network</li>
           <li>Note your computer's local IP address</li>
-          <li>Connect all ESP32 devices to the same WiFi</li>
-          <li>In the ESP32 firmware, set the server IP to your computer's IP</li>
+          <li>Connect all readers to the same WiFi</li>
+          <li>In the reader firmware, set the server IP to your computer's IP</li>
         </ol>
 
         <h3>Option B: Dedicated Hotspot (Recommended for Events)</h3>
@@ -94,7 +94,7 @@ function InstallGuide() {
         <ol>
           <li>Create a hotspot from your phone or a travel router</li>
           <li>Connect your computer to the hotspot</li>
-          <li>Connect all ESP32 devices to the same hotspot</li>
+          <li>Connect all readers to the same hotspot</li>
           <li>Use your computer's hotspot IP as the server address</li>
         </ol>
         <p>Recommended: GL.iNet travel routers ($20-40) are small and reliable.</p>
@@ -112,75 +112,82 @@ function InstallGuide() {
         <table>
           <thead><tr><th>Requirement</th><th>Details</th></tr></thead>
           <tbody>
-            <tr><td>Band</td><td>2.4 GHz (ESP32 does not support 5 GHz)</td></tr>
+            <tr><td>Band</td><td>2.4 GHz (ESP8266 does not support 5 GHz)</td></tr>
             <tr><td>Protocol</td><td>HTTP (port 3001)</td></tr>
             <tr><td>Latency</td><td>Under 500ms is ideal</td></tr>
             <tr><td>Internet</td><td>Not required &mdash; local network only</td></tr>
-            <tr><td>Max devices</td><td>~20 ESP32s per network works reliably</td></tr>
+            <tr><td>Max devices</td><td>~20 readers per network works reliably</td></tr>
           </tbody>
         </table>
 
-        <h2 id="esp32-hardware">ESP32 Hardware</h2>
+        <h2 id="reader-hardware">Reader Hardware</h2>
 
         <h3>Parts Needed (Per Reader Station)</h3>
         <table>
           <thead><tr><th>Component</th><th>Cost</th><th>Notes</th></tr></thead>
           <tbody>
-            <tr><td>ESP32 Dev Board</td><td>$5-10</td><td>ESP32-WROOM-32 or ESP32-S3</td></tr>
+            <tr><td>NodeMCU ESP8266 Board</td><td>$5-8</td><td>ESP-12E NodeMCU (CP2102)</td></tr>
             <tr><td>MFRC522 RFID Module</td><td>$2-5</td><td>Comes with blank cards/tags</td></tr>
             <tr><td>RFID Cards/Tags</td><td>$0.50-1 ea</td><td>NTAG213 or MIFARE Classic 1K</td></tr>
-            <tr><td>USB Cable</td><td>$2-5</td><td>Micro-USB or USB-C depending on board</td></tr>
+            <tr><td>USB Cable</td><td>$2-5</td><td>Micro-USB for the NodeMCU</td></tr>
             <tr><td>Breadboard or Perfboard</td><td>$3-5</td><td>For permanent installations</td></tr>
-            <tr><td>Jumper Wires</td><td>$2-3</td><td>Male-to-female for ESP32 to MFRC522</td></tr>
+            <tr><td>Jumper Wires</td><td>$2-3</td><td>Male-to-female for NodeMCU to MFRC522</td></tr>
           </tbody>
         </table>
         <p><strong>Total per reader: ~$15-30</strong></p>
 
         <h3>Wiring</h3>
-        <p>Connect the MFRC522 to the ESP32:</p>
+        <p>Connect the MFRC522 to the NodeMCU (all signals are 3.3V logic):</p>
         <table>
-          <thead><tr><th>MFRC522 Pin</th><th>ESP32 Pin</th></tr></thead>
+          <thead><tr><th>MFRC522 Pin</th><th>NodeMCU Pin</th></tr></thead>
           <tbody>
-            <tr><td>SDA (SS)</td><td>GPIO 5</td></tr>
-            <tr><td>SCK</td><td>GPIO 18</td></tr>
-            <tr><td>MOSI</td><td>GPIO 23</td></tr>
-            <tr><td>MISO</td><td>GPIO 19</td></tr>
+            <tr><td>SDA (SS)</td><td>D2 (GPIO 4)</td></tr>
+            <tr><td>SCK</td><td>D5 (GPIO 14)</td></tr>
+            <tr><td>MOSI</td><td>D7 (GPIO 13)</td></tr>
+            <tr><td>MISO</td><td>D6 (GPIO 12)</td></tr>
             <tr><td>IRQ</td><td>Not connected</td></tr>
             <tr><td>GND</td><td>GND</td></tr>
-            <tr><td>RST</td><td>GPIO 27</td></tr>
+            <tr><td>RST</td><td>D1 (GPIO 5)</td></tr>
             <tr><td>3.3V</td><td>3.3V</td></tr>
           </tbody>
         </table>
         <p><strong>Important:</strong> The MFRC522 runs on 3.3V. Do NOT connect it to 5V.</p>
 
         <h3>Buzzer (optional)</h3>
-        <p>Wire an active buzzer to GPIO 4 to get a 1-second beep when a player successfully checks in.</p>
+        <p>Wire an active buzzer to D0 to get a 1-second beep when a player successfully checks in.</p>
         <table>
-          <thead><tr><th>Buzzer Pin</th><th>ESP32 Pin</th></tr></thead>
+          <thead><tr><th>Buzzer Pin</th><th>NodeMCU Pin</th></tr></thead>
           <tbody>
-            <tr><td>Positive (+)</td><td>GPIO 4</td></tr>
+            <tr><td>Positive (+)</td><td>D0 (GPIO 16)</td></tr>
             <tr><td>Negative (-)</td><td>GND</td></tr>
           </tbody>
         </table>
-        <p>An <strong>active</strong> buzzer beeps whenever it has power, so driving GPIO 4 HIGH makes it beep. Use the firmware below &mdash; it beeps for 1 second only when the server confirms a successful check-in.</p>
+        <p>An <strong>active</strong> buzzer beeps whenever it has power, so driving D0 HIGH makes it beep. The firmware below beeps for 1 second only when the server confirms a successful check-in.</p>
 
-        <h2 id="programming-the-esp32">Programming the ESP32</h2>
+        <h2 id="programming-the-reader">Programming the Reader</h2>
 
-        <h3>Prerequisites</h3>
-        <p>Install <strong>PlatformIO</strong> in VS Code (recommended), or use the Arduino IDE with ESP32 board support.</p>
+        <h3>Recommended: Flash from the App</h3>
+        <ol>
+          <li>Open the <strong>Reader Setup</strong> screen in the app and install PlatformIO if it's missing</li>
+          <li>On the <strong>Reader Program</strong> screen, pick the reader's serial port</li>
+          <li>Enter the WiFi credentials and server URL, then click <strong>Compile &amp; Flash</strong></li>
+        </ol>
+
+        <h3>Prerequisites (manual)</h3>
+        <p>Install <strong>PlatformIO</strong> in VS Code (recommended), or use the Arduino IDE with ESP8266 board support.</p>
         <p><strong>Arduino IDE:</strong></p>
         <ol>
           <li>Install Arduino IDE 2.x</li>
           <li><strong>File &gt; Preferences &gt; Additional Board Manager URLs</strong></li>
-          <li>Add: <code>https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json</code></li>
-          <li><strong>Tools &gt; Board &gt; Board Manager</strong>, search "esp32", install</li>
+          <li>Add: <code>https://arduino.esp8266.com/stable/package_esp8266com_index.json</code></li>
+          <li><strong>Tools &gt; Board &gt; Board Manager</strong>, search "esp8266", install</li>
           <li><strong>Tools &gt; Manage Libraries</strong>, search and install <strong>MFRC522</strong></li>
         </ol>
 
         <h3>Firmware Code</h3>
-        <p>Copy this into your ESP32 project. Update WiFi credentials and server IP for each reader.</p>
-        <pre><code>{`#include <WiFi.h>
-#include <HTTPClient.h>
+        <p>Copy this into your reader project. Update WiFi credentials and server IP for each reader. Keeps the same wiring used by the app: SS on D2, RST on D1, buzzer on D0.</p>
+        <pre><code>{`#include <ESP8266WiFi.h>
+#include <ESP8266HTTPClient.h>
 #include <SPI.h>
 #include <MFRC522.h>
 
@@ -190,9 +197,9 @@ const char* WIFI_PASSWORD  = "YOUR_WIFI_PASSWORD";
 const char* SERVER_URL     = "http://192.168.1.100:3001/api/scan";
 const char* READER_ID      = "reader-01";  // Unique per reader!
 
-#define SS_PIN       5
-#define RST_PIN      27
-#define BUZZER_PIN   4
+#define SS_PIN       D2   // GPIO4
+#define RST_PIN      D1   // GPIO5
+#define BUZZER_PIN   D0   // GPIO16
 
 MFRC522 rfid(SS_PIN, RST_PIN);
 String lastUID = "";
@@ -282,21 +289,21 @@ void sendScan(String uid) {
 }`}</code></pre>
 
         <h3>PlatformIO Configuration</h3>
-        <pre><code>{`[env:esp32dev]
-platform = espressif32
-board = esp32dev
+        <pre><code>{`[env:nodemcuv2]
+platform = espressif8266
+board = nodemcuv2
 framework = arduino
 monitor_speed = 115200
 lib_deps =
     miguelbalboa/MFRC522@^1.4.10`}</code></pre>
 
         <h3>Flashing Each Reader</h3>
-        <p>For each ESP32:</p>
+        <p>For each reader:</p>
         <ol>
           <li>Change <code>READER_ID</code> to a unique value (e.g., <code>reader-01</code>, <code>reader-02</code>)</li>
           <li>Set <code>WIFI_SSID</code> and <code>WIFI_PASSWORD</code> to your network</li>
           <li>Set <code>SERVER_URL</code> to your computer's IP</li>
-          <li>Flash the code to the ESP32</li>
+          <li>Flash the code to the reader</li>
           <li>Open Serial Monitor to verify "Ready to scan badges..."</li>
           <li>Test by scanning a badge</li>
         </ol>
@@ -307,7 +314,7 @@ lib_deps =
           <li>Go to <strong>Machines</strong> in the sidebar</li>
           <li>Click <strong>+ Add Machine</strong></li>
           <li>Enter the machine name (e.g., "Pac-Man")</li>
-          <li>Enter the Reader ID &mdash; must match <code>READER_ID</code> in the ESP32 firmware exactly</li>
+          <li>Enter the Reader ID &mdash; must match <code>READER_ID</code> in the reader firmware exactly</li>
           <li>Optionally enter a location</li>
           <li>Click <strong>Add Machine</strong></li>
           <li>Repeat for each arcade machine/reader pair</li>
@@ -333,11 +340,11 @@ lib_deps =
         <h3>Before the Event</h3>
         <ul>
           <li>Computer with the app installed and tested</li>
-          <li>All ESP32 readers flashed and tested</li>
+          <li>All readers flashed and tested</li>
           <li>WiFi network set up (hotspot or router)</li>
           <li>Player registration forms ready</li>
           <li>Blank RFID cards/tags for each player</li>
-          <li>USB cables for ESP32 power (battery packs work too)</li>
+          <li>USB cables for reader power (battery packs work too)</li>
           <li>Printed list mapping Reader IDs to Machine Names</li>
         </ul>
 
@@ -345,7 +352,7 @@ lib_deps =
         <ul>
           <li>Connect computer to WiFi network</li>
           <li>Launch the app and verify API server is running</li>
-          <li>Power on each ESP32 reader and verify WiFi connection</li>
+          <li>Power on each reader and verify WiFi connection</li>
           <li>Register all arcade machines in the app under <strong>Machines</strong></li>
           <li>Test each reader by scanning a test badge</li>
           <li>Register all players and assign badges</li>
@@ -362,15 +369,15 @@ lib_deps =
 
         <h3>Power Tips</h3>
         <ul>
-          <li>ESP32 boards can be powered from USB battery packs (5V/1A)</li>
-          <li>A 10,000mAh battery pack runs an ESP32 for ~8-10 hours</li>
-          <li>Velcro or tape the ESP32 + reader combo to each machine</li>
+          <li>ESP8266 boards can be powered from USB battery packs (5V/1A)</li>
+          <li>A 10,000mAh battery pack runs a reader for ~10-15 hours</li>
+          <li>Velcro or tape the reader + NodeMCU combo to each machine</li>
         </ul>
 
         <h2 id="troubleshooting">Troubleshooting</h2>
 
         <div className="troubleshoot-item">
-          <h4>ESP32 won't connect to WiFi</h4>
+          <h4>Reader won't connect to WiFi</h4>
           <ul>
             <li>Make sure you're on 2.4 GHz (not 5 GHz)</li>
             <li>Check SSID and password are correct</li>

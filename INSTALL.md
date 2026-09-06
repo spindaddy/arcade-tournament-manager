@@ -1,6 +1,6 @@
 # Installation & Setup Guide
 
-This guide covers installing the Arcade Tournament Manager, setting up the network, and programming ESP32 RFID readers.
+This guide covers installing the Arcade Tournament Manager, setting up the network, and programming NodeMCU ESP8266 RFID readers.
 
 ---
 
@@ -8,8 +8,8 @@ This guide covers installing the Arcade Tournament Manager, setting up the netwo
 
 1. [Installing the App](#installing-the-app)
 2. [Network Setup](#network-setup)
-3. [ESP32 Hardware](#esp32-hardware)
-4. [Programming the ESP32](#programming-the-esp32)
+3. [Reader Hardware](#reader-hardware)
+4. [Programming the Reader](#programming-the-reader)
 5. [Configuring Readers in the App](#configuring-readers-in-the-app)
 6. [OBS Integration (Live Player Names)](#obs-integration-live-player-names)
 7. [Live Scoreboard](#live-scoreboard)
@@ -41,8 +41,8 @@ This guide covers installing the Arcade Tournament Manager, setting up the netwo
 
 **AppImage (any distro — this is the packaged Linux build):**
 ```bash
-chmod +x Arcade\ Tournament\ Manager-1.3.5-linux-x86_64.AppImage
-./Arcade\ Tournament\ Manager-1.3.5-linux-x86_64.AppImage
+chmod +x Arcade\ Tournament\ Manager-1.3.7-linux-x86_64.AppImage
+./Arcade\ Tournament\ Manager-1.3.7-linux-x86_64.AppImage
 ```
 
 > Note: a `.deb` package is not currently produced (the cross-platform deb
@@ -63,7 +63,7 @@ Back this file up before events.
 
 ## Network Setup
 
-The ESP32 RFID readers communicate with the app over WiFi. Both the computer running the app and all ESP32 devices must be on the same network.
+The ESP8266 RFID readers communicate with the app over WiFi. Both the computer running the app and all readers must be on the same 2.4 GHz network.
 
 ### Option A: Same WiFi Network (Simple)
 
@@ -71,15 +71,15 @@ Best for: Home setups, small venues, single-room tournaments.
 
 ```
 +-----------+          +-----------+          +-----------+
-|  ESP32 #1 |          |  ESP32 #2 |          |  ESP32 #3 |
+| Reader #1 |          | Reader #2 |          | Reader #3 |
 |  reader-01|          |  reader-02|          |  reader-03|
 +-----+-----+          +-----+-----+          +-----+-----+
       |                      |                      |
       +----------+-----------+-----------+----------+
                  |                      |
             WiFi Router          Computer running
-                              Tournament Manager
-                              (192.168.1.100)
+                          Tournament Manager
+                          (192.168.1.100)
 ```
 
 1. Connect your computer to your WiFi network
@@ -87,8 +87,8 @@ Best for: Home setups, small venues, single-room tournaments.
    - **macOS**: System Settings > WiFi > Details > TCP/IP
    - **Windows**: Settings > Network & Internet > Properties
    - **Linux**: `ip addr show` or `ifconfig`
-3. Connect all ESP32 devices to the same WiFi network
-4. In the ESP32 firmware, set the server IP to your computer's IP
+3. Connect all readers to the same WiFi network
+4. In the reader firmware, set the server IP to your computer's IP
 
 ### Option B: Dedicated Hotspot (Recommended for Events)
 
@@ -96,24 +96,20 @@ Best for: Venues with unreliable WiFi, outdoor events, multi-day tournaments.
 
 1. Create a hotspot from your phone or a travel router
 2. Connect your computer to the hotspot
-3. Connect all ESP32 devices to the same hotspot
+3. Connect all readers to the same hotspot
 4. Use your computer's hotspot IP as the server address
 
 **Recommended travel router:** GL.iNet travel routers ($20-40) are small, cheap, and reliable for this purpose.
-
-### Option C: Direct AP Mode (No Router)
-
-Some ESP32 boards can create their own WiFi access point. This is the simplest setup but limits you to one ESP32 at a time unless you set up mesh networking.
 
 ### Network Requirements
 
 | Requirement | Details |
 |-------------|---------|
-| Band | 2.4 GHz (ESP32 does not support 5 GHz) |
+| Band | 2.4 GHz (ESP8266 does not support 5 GHz) |
 | Protocol | HTTP (port 3001) |
 | Latency | Under 500ms is ideal |
 | Internet | Not required - local network only |
-| Max devices | ~20 ESP32s per network works reliably |
+| Max devices | ~20 readers per network works reliably |
 
 ### Finding Your Computer's IP
 
@@ -133,56 +129,40 @@ Look for "IPv4 Address" under your WiFi adapter.
 hostname -I
 ```
 
-The IP will look like `192.168.1.100` or `10.0.0.50`. This is what you put in the ESP32 firmware as `SERVER_IP`.
+The IP will look like `192.168.1.100` or `10.0.0.50`. This is what you put in the reader firmware as `SERVER_IP`.
 
 ---
 
-## ESP32 Hardware
+## Reader Hardware
 
 ### Parts Needed (Per Reader Station)
 
 | Component | Approximate Cost | Notes |
 |-----------|-----------------|-------|
-| ESP32 Dev Board | $5-10 | ESP32-WROOM-32 or ESP32-S3 recommended |
+| NodeMCU ESP8266 Board | $5-8 | ESP-12E NodeMCU (CP2102 USB chip) |
 | MFRC522 RFID Module | $2-5 | Comes with blank cards/tags |
 | RFID Cards/Tags | $0.50-1 each | NTAG213 or MIFARE Classic 1K |
-| USB Cable | $2-5 | Micro-USB or USB-C depending on board |
+| USB Cable | $2-5 | Micro-USB for the NodeMCU |
 | Breadboard or Perfboard | $3-5 | For permanent installations |
-| Jumper Wires | $2-3 | Male-to-female for ESP32 to MFRC522 |
+| Jumper Wires | $2-3 | Male-to-female for NodeMCU to MFRC522 |
 
 **Total per reader: ~$15-30**
 
 ### Wiring
 
-Connect the MFRC522 to an ESP32 (default pins used by the generated firmware):
+Connect the MFRC522 to the NodeMCU using these pins (these are the exact default
+pins the app's generated firmware uses):
 
 ```
-MFRC522 Pin    ESP32 Pin
------------    ---------
-SDA (SS)   ->  GPIO 5
-SCK        ->  GPIO 18
-MOSI       ->  GPIO 23
-MISO       ->  GPIO 19
+MFRC522 Pin    NodeMCU Pin
+-----------    -----------
+SDA (SS)   ->  D2 (GPIO 4)
+SCK        ->  D5 (GPIO 14)
+MOSI       ->  D7 (GPIO 13)
+MISO       ->  D6 (GPIO 12)
 IRQ        ->  Not connected
 GND        ->  GND
-RST        ->  GPIO 27
-3.3V       ->  3.3V
-```
-
-**Have an ESP8266 NodeMCU board instead?** The app can generate + flash those
-too — just pick "ESP8266 NodeMCU" as the Board in **ESP32 Program**. NodeMCU
-uses its own pin labels:
-
-```
-MFRC522 Pin    ESP8266 NodeMCU Pin
------------    ------------------
-SDA (SS)   ->  D8  (GPIO15)
-SCK        ->  D5  (GPIO14)
-MOSI       ->  D7  (GPIO13)
-MISO       ->  D6  (GPIO12)
-IRQ        ->  Not connected
-GND        ->  GND
-RST        ->  D3  (GPIO0)
+RST        ->  D1 (GPIO 5)
 3.3V       ->  3.3V
 ```
 
@@ -190,46 +170,34 @@ RST        ->  D3  (GPIO0)
 
 ### Buzzer (optional)
 
-Wire an **active** buzzer to the buzzer pin to get a 1-second beep when a player
-successfully checks in. The pin is GPIO 4 on ESP32 boards and D4 (GPIO2) on
-ESP8266 NodeMCU boards — it's shown in the generated firmware's comments.
+Wire an **active** buzzer to D0 to get a 1-second beep when a player
+successfully checks in.
 
 ```
-Active Buzzer    Board Pin
--------------    ---------
-Positive (+) ->  GPIO 4 (ESP32) or D4 / GPIO2 (ESP8266 NodeMCU)
+Active Buzzer    NodeMCU Pin
+-------------    -----------
+Positive (+) ->  D0 (GPIO 16)
 Negative (-) ->  GND
 ```
 
-An active buzzer beeps whenever it has power, so the firmware drives GPIO 4 HIGH for 1 second only when the server confirms a successful check-in. Skip this section if you don't want the beep.
-
-### Common ESP32 Boards
-
-| Board | WiFi | Bluetooth | Price | Notes |
-|-------|------|-----------|-------|-------|
-| ESP32-WROOM-32 | 2.4 GHz | Yes | ~$5 | Most common, great for this project |
-| ESP32-S3 | 2.4 GHz | Yes | ~$8 | Newer, more GPIO pins |
-| ESP32-C3 | 2.4 GHz | Yes | ~$4 | RISC-V, cheaper but fewer pins |
-| NodeMCU-32S | 2.4 GHz | Yes | ~$6 | breadboard-friendly |
-| ESP8266 NodeMCU (ESP-12E) | 2.4 GHz | No | ~$4 | Fully supported by the app (not an ESP32 — uses the ESP8266 pin map above) |
+An active buzzer beeps whenever it has power, so the firmware drives D0 HIGH for 1 second only when the server confirms a successful check-in. Skip this section if you don't want the beep.
 
 ---
 
-## Programming the ESP32
+## Programming the Reader
 
 There are two ways to program the readers:
 
 - **Option A (recommended): in-app** — the app generates finished firmware and
-  flashes it over USB itself. Works with **ESP32 DevKit** boards and
-  **ESP8266 NodeMCU** boards.
+  flashes it over USB itself. Targets the **NodeMCU ESP8266 (ESP-12E)** board.
 - **Option B: manual** — traditional VS Code + PlatformIO or Arduino IDE.
 
 ### Option A: In-App Programming (Recommended)
 
-The app's **ESP32 Setup** and **ESP32 Program** screens handle the whole
+The app's **Reader Setup** and **Reader Program** screens handle the whole
 toolchain automatically.
 
-1. Go to **ESP32 Setup** in the sidebar. It checks the requirements automatically:
+1. Go to **Reader Setup** in the sidebar. It checks the requirements automatically:
    - **PlatformIO** — if missing, click **Install PlatformIO**. The app downloads
      the official installer itself (takes a few minutes on first run).
    - **Python** — on Windows, if Python 3 is not installed, click **Install Python**.
@@ -238,27 +206,23 @@ toolchain automatically.
      the Microsoft Store is only a stub and will not work — always use the app's
      install button (or python.org).
    - **Serial port available** — connect the board over USB; the app lists ports
-     and flags ones that look like an ESP32/ESP8266 (CP210x/CH340 drivers).
+     and flags ones that look like a reader (CP210x/CH340 drivers).
 2. Connect the board to your computer with a USB cable.
-3. In **ESP32 Program**, first select the serial port — the app auto-detects the
-   chip (e.g. `ESP32-D0WD-V3` or `ESP8266EX`) using esptool and shows it under
-   the port picker, so you can confirm you picked the right board.
+3. In **Reader Program**, select the reader's serial port.
 4. Fill in:
-   - **Board** — **ESP32 DevKit** or **ESP8266 NodeMCU**; must match your chip
-     (the app warns you if the detected chip type disagrees with your choice).
    - **WiFi Name** and **WiFi Password** (2.4 GHz network — see [Network Setup](#network-setup)).
    - **Server URL** — auto-filled as `http://<your-IP>:3001/api/scan`; adjust if needed.
    - **Reader ID** — a unique ID per reader (e.g. `reader-01`). This must match the
      **Reader ID** you register for that machine in the app later.
 5. Click **Preview** to inspect the generated `.ino` source if you like.
 6. Click **Build & Flash** — the app compiles and uploads the firmware over USB.
-7. Use **Serial Monitor** to watch live output at 115200 baud
+7. Use the **Serial Monitor** to watch live output at 115200 baud
    (`Ready to scan badges...` means it connected to your WiFi and is working).
 
 Repeat for each reader, changing only the **Reader ID**.
 
-The generated firmware uses the wiring pins further down and beeps 1 second on
-a successful check-in.
+The generated firmware uses the wiring pins further up (SS on D2, RST on D1,
+buzzer on D0) and beeps 1 second on a successful check-in.
 
 ### Option B: Manual (VS Code / Arduino IDE)
 
@@ -266,27 +230,27 @@ Useful if you want to customize the firmware yourself.
 
 **Prerequisites**
 
-Install [PlatformIO](https://platformio.org/) in VS Code, or use the Arduino IDE with ESP32 board support.
+Install [PlatformIO](https://platformio.org/) in VS Code, or use the Arduino IDE with ESP8266 board support.
 
 **Using Arduino IDE:**
 1. Install Arduino IDE 2.x
 2. Go to **File > Preferences > Additional Board Manager URLs**
-3. Add: `https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json`
-4. Go to **Tools > Board > Board Manager**, search "esp32", install
+3. Add: `https://arduino.esp8266.com/stable/package_esp8266com_index.json`
+4. Go to **Tools > Board > Board Manager**, search "esp8266", install
 5. Go to **Tools > Manage Libraries**, search and install `MFRC522` by GithubCommunity
 
 **Using PlatformIO:**
 1. Install VS Code
 2. Install PlatformIO extension
-3. Create a new project, select ESP32 board
+3. Create a new project — select the **NodeMCU 1.0 (ESP-12E)** board
 
-### ESP32 Firmware Code
+### ESP8266 Firmware Code
 
-Copy this code into your ESP32 project. Update the WiFi credentials and server IP for each reader.
+Copy this code into your reader project. Update the WiFi credentials and server IP for each reader.
 
 ```cpp
-#include <WiFi.h>
-#include <HTTPClient.h>
+#include <ESP8266WiFi.h>
+#include <ESP8266HTTPClient.h>
 #include <SPI.h>
 #include <MFRC522.h>
 
@@ -296,9 +260,9 @@ const char* WIFI_PASSWORD  = "YOUR_WIFI_PASSWORD";
 const char* SERVER_URL     = "http://192.168.1.100:3001/api/scan";
 const char* READER_ID      = "reader-01";  // Unique per reader!
 
-#define SS_PIN    5
-#define RST_PIN   27
-#define BUZZER_PIN 4
+#define SS_PIN      D2   // GPIO4
+#define RST_PIN     D1   // GPIO5
+#define BUZZER_PIN  D0   // GPIO16
 
 MFRC522 rfid(SS_PIN, RST_PIN);
 String lastUID = "";
@@ -411,9 +375,9 @@ void sendScan(String uid) {
 If using PlatformIO, create `platformio.ini`:
 
 ```ini
-[env:esp32dev]
-platform = espressif32
-board = esp32dev
+[env:nodemcuv2]
+platform = espressif8266
+board = nodemcuv2
 framework = arduino
 monitor_speed = 115200
 lib_deps =
@@ -422,13 +386,13 @@ lib_deps =
 
 ### Flashing Each Reader (manual path)
 
-You need one ESP32 per arcade machine. For each reader (if you are not using the
+You need one reader per arcade machine. For each reader (if you are not using the
 in-app programmer from Option A):
 
 1. Change `READER_ID` to a unique value (e.g., `reader-01`, `reader-02`, etc.)
 2. Make sure `WIFI_SSID` and `WIFI_PASSWORD` match your network
 3. Make sure `SERVER_URL` points to your computer's IP
-4. Flash the code to the ESP32
+4. Flash the code to the reader
 5. Open Serial Monitor to verify it connects and shows "Ready to scan badges..."
 6. Test by scanning a badge - you should see the server response
 
@@ -451,7 +415,7 @@ in-app programmer from Option A):
 3. Click **+ Add Machine**
 4. Enter:
    - **Name**: The arcade machine name (e.g., "Pac-Man")
-   - **Reader ID**: Must match `READER_ID` in the ESP32 firmware exactly (e.g., `reader-01`)
+   - **Reader ID**: Must match `READER_ID` in the reader firmware exactly (e.g., `reader-01`)
    - **Location**: Optional (e.g., "Left wall")
    - **OBS Server** and **OBS Source Name**: Optional — see [OBS Integration](#obs-integration-live-player-names)
 5. Click **Add Machine**
@@ -508,7 +472,7 @@ second monitor):
 2. The scoreboard URL is `http://<your-computer-IP>:3001/` — open it from any
    device on the same network (e.g. a wall-mounted TV in kiosk/fullscreen mode).
 3. The scoreboard shows live rankings by total score, best score, and who is
-   currently playing. Your LAN IP is shown on the ESP32 Setup screen if you need it.
+   currently playing. Your LAN IP is shown on the Reader Setup screen if you need it.
 4. Optional divisions: add divisions in **Settings** (e.g. "Beginner", "Pro") and
    the sidebar gets per-division scoreboard links.
 
@@ -531,7 +495,7 @@ Expected response:
 
 ### Step 2: Test a Scan Manually
 
-Register a player in the app, then assign them a badge. Get the badge UID from the ESP32 serial output, or test manually:
+Register a player in the app, then assign them a badge. Get the badge UID from the reader's serial output, or test manually:
 
 ```bash
 curl -X POST http://COMPUTER_IP:3001/api/scan \
@@ -539,9 +503,9 @@ curl -X POST http://COMPUTER_IP:3001/api/scan \
   -d '{"badge_uid": "AA:BB:CC:DD:EE:FF", "reader_id": "reader-01"}'
 ```
 
-### Step 3: Test ESP32 Connectivity
+### Step 3: Test Reader Connectivity
 
-Open the ESP32 Serial Monitor and scan a badge. You should see:
+Open the reader's Serial Monitor and scan a badge. You should see:
 ```
 Badge scanned: AA:BB:CC:DD:EE:FF
 Sending to server... OK (200)
@@ -562,18 +526,18 @@ After a successful scan, the Dashboard in the app should show:
 ### Before the Event
 
 - [ ] Computer with the app installed and tested
-- [ ] All ESP32 readers flashed and tested
+- [ ] All readers flashed and tested
 - [ ] WiFi network set up (hotspot or router)
 - [ ] Player registration forms ready
 - [ ] Blank RFID cards/tags for each player
-- [ ] USB cables for ESP32 power (battery packs work too)
+- [ ] USB cables for reader power (battery packs work too)
 - [ ] Printed list mapping Reader IDs to Machine Names
 
 ### Setup at Venue
 
 - [ ] Connect computer to WiFi network
 - [ ] Launch the app and verify API server is running
-- [ ] Power on each ESP32 reader and verify WiFi connection (check Serial Monitor)
+- [ ] Power on each reader and verify WiFi connection (check Serial Monitor)
 - [ ] Register all arcade machines in the app under **Machines**
 - [ ] Test each reader by scanning a test badge
 - [ ] Register all players and assign badges
@@ -588,22 +552,22 @@ After a successful scan, the Dashboard in the app should show:
 
 ### Power Tips
 
-- ESP32 boards can be powered from USB battery packs (5V/1A is enough)
-- A 10,000mAh battery pack runs an ESP32 for ~8-10 hours
-- Velcro or tape the ESP32 + reader combo to each machine
+- ESP8266 boards can be powered from USB battery packs (5V/1A is enough)
+- A 10,000mAh battery pack runs a reader for ~10-15 hours
+- Velcro or tape the reader + NodeMCU combo to each machine
 
 ---
 
 ## Troubleshooting
 
-### ESP32 won't connect to WiFi
+### Reader won't connect to WiFi
 - Make sure you're on 2.4 GHz (not 5 GHz)
 - Check SSID and password are correct
 - Move closer to the router
 - Some captive portals (hotel/airport WiFi) won't work - use your own hotspot
 
 ### Badge scans but app doesn't show it
-- Check the ESP32 Serial Monitor for HTTP error codes
+- Check the reader's Serial Monitor for HTTP error codes
 - Verify the server IP is correct in the firmware
 - Make sure port 3001 is not blocked by firewall
 - Check that the Reader ID in the firmware matches what's registered in the app
@@ -631,4 +595,4 @@ After a successful scan, the Dashboard in the app should show:
 
 ### Multiple badges triggering at once
 - Keep RFID readers at least 2 feet apart to avoid cross-reads
-- Use屏蔽材料 (metal foil) between readers if they're mounted close together
+- Use metal foil between readers if they're mounted close together

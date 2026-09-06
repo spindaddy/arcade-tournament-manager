@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 
-function Esp32Setup({ apiUrl }) {
+function ReaderSetup({ apiUrl }) {
   const [prereqs, setPrereqs] = useState(null);
   const [installing, setInstalling] = useState(false);
   const [installKind, setInstallKind] = useState(null);
@@ -69,8 +69,8 @@ function Esp32Setup({ apiUrl }) {
   return (
     <div>
       <div className="page-header">
-        <h1>ESP32 Setup</h1>
-        <p>Check and install the tools needed to program ESP32 readers.</p>
+        <h1>Reader Setup</h1>
+        <p>Check and install the tools needed to program the ESP8266 readers.</p>
       </div>
 
       <div className="card">
@@ -98,10 +98,9 @@ function Esp32Setup({ apiUrl }) {
                   {installing && installKind === 'python' ? 'Installing...' : 'Install Python'}
                 </button>
               )} />
-            <PrereqRow label="esptool (comes with PlatformIO)" ok={prereqs.esptool.installed} detail={prereqs.esptool.path} />
             <PrereqRow label="Serial port available"
               ok={prereqs.serialPortsPresent}
-              detail={prereqs.serialPortsPresent && prereqs.serialPorts.length ? prereqs.serialPorts.map((p) => p.port).join(', ') : 'No device detected. Connect the ESP32 via USB.'} />
+              detail={prereqs.serialPortsPresent && prereqs.serialPorts.length ? prereqs.serialPorts.map((p) => p.port).join(', ') : 'No device detected. Connect the reader via USB.'} />
           </div>
         )}
       </div>
@@ -146,4 +145,4 @@ function PrereqRow({ label, ok, detail, action }) {
   );
 }
 
-export default Esp32Setup;
+export default ReaderSetup;

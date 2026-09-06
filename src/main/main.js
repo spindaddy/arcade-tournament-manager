@@ -316,7 +316,7 @@ function startApiServer() {
       res.json({ title: tournament ? tournament.name : 'Arcade Tournament', theme: settings.theme || 'dark', tournament });
     });
 
-    // Network connection info (LAN IP + URLs for ESP32 / web scoreboard)
+    // Network connection info (LAN IP + URLs for readers / web scoreboard)
     apiApp.get('/api/connection', (req, res) => {
       const ip = getLanIp();
       res.json({
@@ -328,7 +328,7 @@ function startApiServer() {
       });
     });
 
-    // Firmware generation + ESP32 flash endpoints
+    // Firmware generation + reader flash endpoints
     registerFirmwareRoutes(apiApp);
     registerObsRoutes(apiApp, db);
 

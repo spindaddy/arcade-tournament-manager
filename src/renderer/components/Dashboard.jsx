@@ -104,10 +104,10 @@ function Dashboard({ stats, apiUrl }) {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '4px' }}>
             <ConnectionRow label="API Base URL" value={connection.apiBase} target={`${connection.apiBase}/api`} />
             <ConnectionRow label="Web Scoreboard" value={connection.scoreboardUrl} target={connection.scoreboardUrl} />
-            <ConnectionRow label="ESP32 Scan Endpoint" value={connection.scanEndpoint} target={connection.scanEndpoint} />
+            <ConnectionRow label="Reader Scan Endpoint" value={connection.scanEndpoint} target={connection.scanEndpoint} />
             <p style={{ color: 'var(--text-secondary)', fontSize: '13px', marginTop: '4px' }}>
               This Mac's current LAN address is <code>{connection.lanIp}</code>.
-              Use these URLs on your ESP32 devices and any phone/tablet on the same Wi-Fi network.
+              Use these URLs on your reader devices and any phone/tablet on the same Wi-Fi network.
             </p>
           </div>
         ) : (

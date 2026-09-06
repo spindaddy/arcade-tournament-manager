@@ -24,41 +24,6 @@ function findPio() {
   return 'pio'; // fall back to PATH
 }
 
-function findEsptool() {
-  const homedir = os.homedir();
-  const pkgs = path.join(homedir, '.platformio', 'packages', 'tool-esptoolpy');
-  const penvBin = path.join(homedir, '.platformio', 'penv', 'bin');
-  if (process.platform === 'win32') {
-    for (const c of [
-      path.join(pkgs, 'esptool.exe'),
-      path.join(homedir, '.platformio', 'penv', 'Scripts', 'esptool.exe'),
-      path.join(homedir, '.platformio', 'penv', 'Scripts', 'esptool.py')
-    ]) {
-      if (fs.existsSync(c)) return c;
-    }
-    return 'esptool.exe';
-  }
-  for (const c of [
-    path.join(pkgs, 'esptool.py'),
-    path.join(pkgs, 'esptool'),
-    path.join(penvBin, 'esptool.py'),
-    path.join(penvBin, 'esptool')
-  ]) {
-    if (fs.existsSync(c)) return c;
-  }
-  return 'esptool.py'; // fall back to PATH
-}
-
-// Penv interpreter used to run esptool.py.
-function findPenvPython() {
-  const base = path.join(os.homedir(), '.platformio', 'penv');
-  if (process.platform === 'win32') {
-    return path.join(base, 'Scripts', 'python.exe');
-  }
-  const posix = path.join(base, 'bin', 'python3');
-  return fs.existsSync(posix) ? posix : path.join(base, 'bin', 'python');
-}
-
 function platformioAvailable() {
   return new Promise((resolve) => {
     const pio = findPio();
@@ -125,12 +90,12 @@ async function flashFirmware(config, onLog) {
     args.push('--upload-port', config.port);
     onLog && onLog(`\nUsing serial port: ${config.port}`);
   }
-  onLog && onLog('\nFlashing to ESP32 over USB...');
+  onLog && onLog('\nFlashing to reader over USB...');
   const flashCode = (await runStream(pio, args, {}, onLog)).code;
   return { code: flashCode, dir, flashed: flashCode === 0 };
 }
 
-// List serial ports. Optionally probe each with esptool to flag ESP32 device ports.
+// List serial ports, flagging those that look like reader/USB devices.
 function listPorts() {
   return new Promise((resolve) => {
     const pio = findPio();
@@ -153,64 +118,11 @@ function listPorts() {
           port: port.trim(),
           description: description ? description.split(':').slice(1).join(':').trim() : '',
           hardwareId: hwid ? hwid.split(':').slice(1).join(':').trim() : '',
-          likelyEsp32: /esp32|cp210|ch34|silicon|ftdi|debug-console|usb/i.test(text)
+          likelyReader: /esp32|esp8266|cp210|ch34|silicon|ftdi|debug-console|usb/i.test(text)
         });
       }
       resolve(ports);
     });
-  });
-}
-
-// Identify the chip on a serial port using esptool (`chip_id`).
-// Returns { ok, chipType, module, chipId, mac, error, output }.
-function probeChip(port) {
-  return new Promise((resolve) => {
-    let child, out = '', done = false;
-
-    const finish = (extra) => {
-      if (done) return;
-      done = true;
-      clearTimeout(timer);
-      try { child && child.kill(); } catch (e) { /* ignore */ }
-      const text = out;
-      const chipTypeMatch = text.match(/detecting chip type\.\.\.\s*(\S+)/i);
-      const moduleMatch = text.match(/Chip is\s+([^(]+)/i);
-      const chipIdMatch = text.match(/chip [iI]d:\s*(?:0x)?([0-9a-f]+)/i);
-      const macMatch = text.match(/MAC:\s*([0-9a-f:]+)/i);
-      const fatal = /fatal error|failed to connect|no compatible chip/i.test(text);
-
-      const chipType = chipTypeMatch ? chipTypeMatch[1] : null;
-      const module = moduleMatch ? moduleMatch[1].trim() : null;
-      const ok = !fatal && !!(chipType || module);
-
-      return resolve({
-        ok,
-        chipType,
-        module: module || chipType || null,
-        chipId: chipIdMatch ? chipIdMatch[1] : null,
-        mac: macMatch ? macMatch[1] : null,
-        error: ok ? null : (extra.error || 'Could not identify the chip.'),
-        output: text.trim()
-      });
-    };
-
-    try {
-      const esptool = findEsptool();
-      const isPy = /\.py$/i.test(esptool);
-      const cmd = isPy ? findPenvPython() : esptool;
-      const args = isPy ? [esptool, '--port', port, 'chip_id'] : ['--port', port, 'chip_id'];
-      child = spawn(cmd, args, {});
-    } catch (e) {
-      return finish({ error: e.message });
-    }
-
-    const onData = (d) => (out += d.toString());
-    child.stdout && child.stdout.on('data', onData);
-    child.stderr && child.stderr.on('data', onData);
-    child.on('error', (err) => finish({ error: err.message }));
-    child.on('close', (code) => finish({ error: code === 0 ? null : `esptool exited with code ${code}` }));
-
-    const timer = setTimeout(() => finish({ error: 'Timed out waiting for the chip.' }), 25000);
   });
 }
 
@@ -273,4 +185,4 @@ except Exception as e:
   };
 }
 
-module.exports = { findPio, findEsptool, platformioAvailable, buildFirmware, flashFirmware, runStream, listPorts, probeChip, startMonitor };
+module.exports = { findPio, platformioAvailable, buildFirmware, flashFirmware, runStream, listPorts, startMonitor };
