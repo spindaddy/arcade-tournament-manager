@@ -82,9 +82,7 @@ function initializeDatabase() {
       badge_uid TEXT NOT NULL,
       reader_id TEXT NOT NULL,
       scan_time DATETIME DEFAULT CURRENT_TIMESTAMP,
-      event_type TEXT DEFAULT 'checkin',
-      FOREIGN KEY (badge_uid) REFERENCES badges(rfid_uid),
-      FOREIGN KEY (reader_id) REFERENCES arcade_machines(reader_id)
+      event_type TEXT DEFAULT 'checkin'
     );
 
     CREATE TABLE IF NOT EXISTS game_sessions (
@@ -105,6 +103,28 @@ function initializeDatabase() {
       value TEXT
     );
   `);
+
+  // Migration: drop foreign keys from scan_logs so unknown badges/readers still log
+  try {
+    const scanLogFks = db.prepare(`PRAGMA foreign_key_list(scan_logs)`).all();
+    if (scanLogFks.length > 0) {
+      db.pragma('foreign_keys = OFF');
+      db.exec(`ALTER TABLE scan_logs RENAME TO scan_logs_old;
+        CREATE TABLE scan_logs (
+          id TEXT PRIMARY KEY,
+          badge_uid TEXT NOT NULL,
+          reader_id TEXT NOT NULL,
+          scan_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+          event_type TEXT DEFAULT 'checkin'
+        );
+        INSERT INTO scan_logs (id, badge_uid, reader_id, scan_time, event_type)
+          SELECT id, badge_uid, reader_id, scan_time, event_type FROM scan_logs_old;
+        DROP TABLE scan_logs_old;`);
+      db.pragma('foreign_keys = ON');
+    }
+  } catch (migrationError) {
+    console.error('scan_logs migration skipped:', migrationError.message);
+  }
 
   // Migration: add twitch_name column to players if missing
   try {

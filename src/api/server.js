@@ -166,6 +166,12 @@ app.post('/api/scan', (req, res) => {
   }
 });
 
+// Most recent badge scanned by any reader (used to auto-fill badge assignment)
+app.get('/api/scan/last', (req, res) => {
+  const row = db.prepare(`SELECT badge_uid, reader_id, scan_time FROM scan_logs ORDER BY scan_time DESC LIMIT 1`).get();
+  res.json(row || null);
+});
+
 // Get active sessions
 app.get('/api/sessions/active', (req, res) => {
   const sessions = db.prepare(`

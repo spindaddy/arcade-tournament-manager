@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 function Players({ apiUrl }) {
   const [players, setPlayers] = useState([]);
@@ -9,6 +9,8 @@ function Players({ apiUrl }) {
   const [selectedPlayer, setSelectedPlayer] = useState(null);
   const [formData, setFormData] = useState({ name: '', email: '', phone: '', twitch_name: '', division: '' });
   const [badgeData, setBadgeData] = useState({ rfid_uid: '' });
+  const [scanListen, setScanListen] = useState(true);
+  const lastFilledScanRef = useRef(null);
 
   useEffect(() => {
     fetchPlayers();
@@ -116,6 +118,33 @@ function Players({ apiUrl }) {
     }
   };
 
+  // While the assign-badge modal is open, auto-fill the UID from fresh reader scans.
+  useEffect(() => {
+    if (!showBadgeModal || !scanListen) return;
+    let cancelled = false;
+    const pollLastScan = async () => {
+      try {
+        const response = await fetch(`${apiUrl}/scan/last`);
+        if (!response.ok) return;
+        const row = await response.json();
+        if (!row || !row.badge_uid || cancelled) return;
+        const scanTime = row.scan_time ? new Date(row.scan_time.replace(' ', 'T') + 'Z').getTime() : 0;
+        if (scanTime && Date.now() - scanTime > 3000) return;
+        if (row.scan_time === lastFilledScanRef.current) return;
+        lastFilledScanRef.current = row.scan_time;
+        setBadgeData((current) => (current.rfid_uid === row.badge_uid ? current : { rfid_uid: row.badge_uid }));
+      } catch (error) {
+        // Ignore transient polling errors
+      }
+    };
+    pollLastScan();
+    const timer = setInterval(pollLastScan, 1000);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [showBadgeModal, scanListen, apiUrl]);
+
   return (
     <div>
       <div className="page-header">
@@ -173,6 +202,8 @@ function Players({ apiUrl }) {
                         style={{ marginRight: '8px' }}
                         onClick={() => {
                           setSelectedPlayer(player);
+                          setBadgeData({ rfid_uid: '' });
+                          lastFilledScanRef.current = null;
                           setShowBadgeModal(true);
                         }}
                       >
@@ -277,9 +308,25 @@ function Players({ apiUrl }) {
                   required
                 />
               </div>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '13px', marginBottom: '16px' }}>
-                Scan the badge on any reader to get the UID, then paste it here.
-              </p>
+              <div className="form-group">
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={scanListen}
+                    onChange={(e) => setScanListen(e.target.checked)}
+                  />
+                  Auto-fill from reader scans
+                </label>
+                {scanListen ? (
+                  <p style={{ color: 'var(--text-secondary)', fontSize: '12px', marginTop: '4px' }}>
+                    Listening — tap or swipe the badge on any reader and the UID fills in automatically.
+                  </p>
+                ) : (
+                  <p style={{ color: 'var(--text-secondary)', fontSize: '12px', marginTop: '4px' }}>
+                    Auto-fill off. Scan the badge on any reader to get the UID, then type or paste it here.
+                  </p>
+                )}
+              </div>
               <div className="modal-actions">
                 <button type="button" className="btn btn-secondary" onClick={() => setShowBadgeModal(false)}>
                   Cancel
