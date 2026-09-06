@@ -98,12 +98,11 @@ void recognizedFeedback() {
 
 // Badge not registered to any player
 void unknownFeedback() {
-  for (int i = 0; i < 2; i++) {
-    digitalWrite(BUZZER_PIN, BUZZER_ON); delay(80);
-    digitalWrite(BUZZER_PIN, BUZZER_OFF);  delay(60);
-    flashLed(60);
-    delay(60);
-  }
+  // One longer beep, no LED flash (so it's distinct from a recognized scan).
+  digitalWrite(BUZZER_PIN, BUZZER_ON);
+  delay(300);
+  digitalWrite(BUZZER_PIN, BUZZER_OFF);
+  delay(100);
 }
 
 // Server unreachable / HTTP error
