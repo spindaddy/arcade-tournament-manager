@@ -18,6 +18,7 @@ function ReaderProgram({ apiUrl }) {
   const [busy, setBusy] = useState(false);
   const [preview, setPreview] = useState(null);
   const [doneStatus, setDoneStatus] = useState(null);
+  const [monitorBaud, setMonitorBaud] = useState(115200);
   const outputRef = useRef(null);
 
   useEffect(() => {
@@ -113,11 +114,11 @@ function ReaderProgram({ apiUrl }) {
     setDoneStatus(null);
     setMonitorOn(true);
     setBusy(true);
-    setOutput(['Listening on ' + port + ' @ 74880... (press Stop to end)']);
+    setOutput(['Listening on ' + port + ' @ ' + monitorBaud + '... (press Stop to end)']);
     const r = await fetch(`${apiUrl}/firmware/monitor/start`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ port })
+      body: JSON.stringify({ port, baud: monitorBaud })
     });
     const data = await r.json();
     setMonitorJobId(data.id);
@@ -207,6 +208,14 @@ function ReaderProgram({ apiUrl }) {
             <button className="btn btn-secondary" onClick={monitorOn ? stopMonitor : startMonitor} disabled={!port || (busy && !monitorOn)}>
               {monitorOn ? 'Stop Monitor' : 'Open Serial Monitor'}
             </button>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: 'var(--text-secondary)' }}>
+              Baud
+              <select value={monitorBaud} onChange={(e) => setMonitorBaud(Number(e.target.value))} disabled={monitorOn}>
+                <option value={74880}>74880 (boot log)</option>
+                <option value={115200}>115200 (firmware)</option>
+                <option value={9600}>9600</option>
+              </select>
+            </label>
           </div>
         </div>
       </div>

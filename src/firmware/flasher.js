@@ -129,8 +129,9 @@ function listPorts() {
 // Start a raw serial monitor on the given port (streams to onLog).
 // Reads directly with pyserial (Python in the PlatformIO env) because
 // `pio device monitor` requires a TTY that isn't available when spawned
-// from the Node app.
-function startMonitor(port, onLog) {
+// from the Node app. Defaults to 115200 (the firmware's Serial.begin rate);
+// 74880 is useful only for the ESP8266 ROM boot log after a reset.
+function startMonitor(port, onLog, baud = 115200) {
   const py = process.platform === 'win32'
     ? path.join(os.homedir(), '.platformio', 'penv', 'Scripts', 'python.exe')
     : path.join(os.homedir(), '.platformio', 'penv', 'bin', 'python3');
@@ -138,8 +139,8 @@ function startMonitor(port, onLog) {
   const script = `
 import serial, sys, time
 try:
-    s = serial.Serial('${port.replace(/'/g, "\\'")}', 74880, timeout=0.1)
-    sys.stdout.write('Listening on ${port.replace(/'/g, "\\'")} @ 74880...\\n')
+    s = serial.Serial('${port.replace(/'/g, "\\'")}', ${baud}, timeout=0.1)
+    sys.stdout.write('Listening on ${port.replace(/'/g, "\\'")} @ ${baud}...\\n')
     sys.stdout.flush()
     while True:
         data = s.read(4096)

@@ -149,17 +149,18 @@ function registerFirmwareRoutes(app) {
     res.json({ status: job.status, lines: job.lines, result: job.result });
   });
 
-  // Start a serial monitor on a port. Body: { port }
+  // Start a serial monitor on a port. Body: { port, baud }
   router.post('/monitor/start', (req, res) => {
     const { port } = req.body || {};
     if (!port) return res.status(400).json({ error: 'port required' });
+    const baud = Number((req.body || {}).baud) || 115200;
     const id = uuidv4();
     const job = { id, lines: [], status: 'running', since: new Date().toISOString() };
     jobs.set(id, job);
     const handle = startMonitor(port, (line) => {
       job.lines.push(line);
       if (job.lines.length > 10000) job.lines.splice(0, job.lines.length - 10000);
-    });
+    }, baud);
     monitors.set(id, handle);
     res.json({ id, status: 'running' });
   });
