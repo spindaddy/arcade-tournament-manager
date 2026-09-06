@@ -5,6 +5,7 @@ import Players from './components/Players';
 import Tournaments from './components/Tournaments';
 import Machines from './components/Machines';
 import ActiveSessions from './components/ActiveSessions';
+import UnknownBadges from './components/UnknownBadges';
 import InstallGuide from './components/InstallGuide';
 import Scoreboard from './components/Scoreboard';
 import Settings from './components/Settings';
@@ -86,6 +87,9 @@ function App() {
               <NavLink to="/players">Players</NavLink>
             </li>
             <li>
+              <NavLink to="/unknown-badges">Unknown Badges</NavLink>
+            </li>
+            <li>
               <NavLink to="/tournaments">Tournament</NavLink>
             </li>
             <li>
@@ -145,6 +149,7 @@ function App() {
           <Routes>
             <Route path="/" element={<Dashboard stats={stats} apiUrl={API_URL} title={title} />} />
             <Route path="/players" element={<Players apiUrl={API_URL} />} />
+            <Route path="/unknown-badges" element={<UnknownBadges apiUrl={API_URL} />} />
             <Route path="/tournaments" element={<Tournaments apiUrl={API_URL} />} />
             <Route path="/machines" element={<Machines apiUrl={API_URL} />} />
             <Route path="/scoreboard" element={<Scoreboard apiUrl={API_URL} title={title} />} />

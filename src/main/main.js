@@ -511,6 +511,24 @@ function startApiServer() {
       res.json(row || null);
     });
 
+    // Unknown badges - UIDs scanned but not yet registered to any player.
+    apiApp.get('/api/scan/unknown', (req, res) => {
+      const rows = db.prepare(`
+        SELECT
+          s.badge_uid,
+          MAX(s.scan_time) AS last_scan_time,
+          (SELECT reader_id FROM scan_logs
+            WHERE badge_uid = s.badge_uid
+            ORDER BY scan_time DESC LIMIT 1) AS last_reader_id,
+          COUNT(*) AS scan_count
+        FROM scan_logs s
+        WHERE NOT EXISTS (SELECT 1 FROM badges b WHERE b.rfid_uid = s.badge_uid)
+        GROUP BY s.badge_uid
+        ORDER BY last_scan_time DESC
+      `).all();
+      res.json(rows);
+    });
+
     apiApp.get('/api/sessions/active', (req, res) => {
       const sessions = db.prepare(`SELECT gs.id, gs.start_time, p.name as player_name, p.id as player_id, am.name as machine_name, am.reader_id FROM game_sessions gs JOIN players p ON gs.player_id = p.id LEFT JOIN arcade_machines am ON gs.machine_id = am.id WHERE gs.end_time IS NULL ORDER BY gs.start_time DESC`).all();
       res.json(sessions);
