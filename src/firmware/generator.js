@@ -47,7 +47,7 @@ function generateIno(config = {}) {
  * WIRING (MFRC522 -> ESP8266 NodeMCU):
 ${WIRING.join('\n')}
  *
- * OPTIONAL ACTIVE BUZZER (1s beep on successful check-in):
+ * OPTIONAL ACTIVE BUZZER (short beep on successful check-in):
  *   Positive (+)  ->  D0 (GPIO${pins.buzzer})
  *   Negative (-)  ->  GND
  * ========================================================
@@ -92,12 +92,9 @@ void flashLed(int onMs) {
 // Recognized badge (checked_in / already_checkedin / switched_game)
 void recognizedFeedback() {
   digitalWrite(BUZZER_PIN, HIGH);
-  for (int i = 0; i < 5; i++) {
-    digitalWrite(LED_PIN, LED_ON);
-    delay(100);
-    digitalWrite(LED_PIN, LED_OFF);
-    delay(100);
-  }
+  digitalWrite(LED_PIN, LED_ON);
+  delay(150);
+  digitalWrite(LED_PIN, LED_OFF);
   digitalWrite(BUZZER_PIN, LOW);
 }
 
