@@ -3,8 +3,10 @@ const path = require('path');
 
 // Reader firmware target: ESP8266 NodeMCU (ESP-12E).
 // Wiring per the tournament build: SS = D2 (GPIO4), RST = D1 (GPIO5),
-// buzzer = D0 (GPIO16).
-const DEFAULT_PINS = { ss: 4, rst: 5, buzzer: 16 };
+// buzzer = D6 (GPIO12) — NOT D0/GPIO16: GPIO16 floats high across ESP8266
+// reset and can't reliably drive an active piezo, causing stuck-on / flaky beeps.
+// Default pins (NodeMCU): ss=D4, rst=D3, buzzer=D6.
+const DEFAULT_PINS = { ss: 4, rst: 5, buzzer: 12 };
 
 const WIRING = [
   '  SDA (SS)  ->  D2 (GPIO4)',
@@ -47,8 +49,11 @@ function generateIno(config = {}) {
  * WIRING (MFRC522 -> ESP8266 NodeMCU):
 ${WIRING.join('\n')}
  *
- * OPTIONAL ACTIVE BUZZER (short beep on successful check-in):
- *   Positive (+)  ->  D0 (GPIO${pins.buzzer})
+ * ACTIVE piezo buzzer (short beep on successful check-in).
+ * Use a transistor/keyed driver for an active buzzer, else it may brown-out
+ * the ESP on power-up:
+ *   Positive (+)  ->  D6 (GPIO${pins.buzzer})
+ *   Negative (-)  ->  GND
  *   Negative (-)  ->  GND
  * ========================================================
  */
@@ -66,7 +71,7 @@ const char* READER_ID      = "${escUid(readerId)}";  // Unique per reader!
 
 #define SS_PIN       ${pins.ss}   // D2
 #define RST_PIN      ${pins.rst}   // D1
-#define BUZZER_PIN   ${pins.buzzer}  // D0
+#define BUZZER_PIN   ${pins.buzzer}  // D6
 #define LED_PIN      D4               // GPIO2 onboard blue LED (active-low) or external LED
 
 #define LED_ON   LOW

@@ -15,8 +15,11 @@
  *   RST       ->  D1 (GPIO 5)
  *   3.3V      ->  3.3V
  *
- * OPTIONAL ACTIVE BUZZER (short beep on successful check-in):
- *   Positive (+)  ->  D0 (GPIO 16)
+ * ACTIVE piezo buzzer (short beep on successful check-in).
+ * Use a transistor/keyed driver for an active buzzer, else it may brown-out
+ * the ESP on power-up:
+ *   Positive (+)  ->  D6 (GPIO 12)
+ *   Negative (-)  ->  GND
  *   Negative (-)  ->  GND
  *
  * ========== CONFIGURE THESE FOR EACH READER ==========
@@ -39,7 +42,7 @@ const char* READER_ID      = "reader-01";  // Unique per reader!
 
 #define SS_PIN       D2   // GPIO4
 #define RST_PIN      D1   // GPIO5
-#define BUZZER_PIN   D0   // GPIO16
+#define BUZZER_PIN   D6   // GPIO12 (NOT D0/GPIO16 — floats high across reset)
 #define LED_PIN      D4   // GPIO2 onboard blue LED (active-low) or external LED
 
 #define LED_ON   LOW
