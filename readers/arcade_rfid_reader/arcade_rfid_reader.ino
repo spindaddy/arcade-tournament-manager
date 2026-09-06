@@ -2,6 +2,8 @@
  * Arcade Tournament Manager - ESP8266 NodeMCU RFID Reader
  * =======================================================
  * Reads RFID badges and reports scans to the Arcade Tournament Manager app.
+ * MFRC522 init/read flow (SPI.begin -> PCD_Init -> delay(500) -> getid())
+ * is the one proven on live arcade hardware.
  *
  * WIRING (MFRC522 -> ESP8266 NodeMCU):
  *   SDA (SS)  ->  D2 (GPIO 4)
@@ -39,11 +41,16 @@ const char* READER_ID      = "reader-01";  // Unique per reader!
 #define RST_PIN      D1   // GPIO5
 #define BUZZER_PIN   D0   // GPIO16
 
-MFRC522 rfid(SS_PIN, RST_PIN);
+MFRC522 mfrc522(SS_PIN, RST_PIN);
 WiFiClient client;
+
 String lastUID = "";
 unsigned long lastScanTime = 0;
 const unsigned long DEBOUNCE_MS = 3000;  // Ignore same badge for 3 seconds
+
+int readsuccess;          // Was a card present and read this pass?
+char str[32] = "";        // Scratch buffer for hex formatting
+String StrUID = "";       // UID of the last scan
 
 // Beep for 1 second on a successful check-in
 void successBeep() {
@@ -52,14 +59,41 @@ void successBeep() {
   digitalWrite(BUZZER_PIN, LOW);    // beep off
 }
 
+// Format a byte array as uppercase hex with ':' separators.
+void array_to_string(byte array[], unsigned int len, char buffer[]) {
+  unsigned int pos = 0;
+  for (unsigned int i = 0; i < len; i++) {
+    if (i > 0) buffer[pos++] = ':';
+    byte nib1 = (array[i] >> 4) & 0x0F;
+    byte nib2 = (array[i] >> 0) & 0x0F;
+    buffer[pos++] = nib1 < 0xA ? '0' + nib1 : 'A' + nib1 - 0xA;
+    buffer[pos++] = nib2 < 0xA ? '0' + nib2 : 'A' + nib2 - 0xA;
+  }
+  buffer[pos] = '\0';
+}
+
+// Read a new card and store its UID as a hex string in StrUID.
+// Returns 1 on a fresh read, 0 if no card / read failed.
+int getid() {
+  if (!mfrc522.PICC_IsNewCardPresent()) return 0;
+  if (!mfrc522.PICC_ReadCardSerial()) return 0;
+
+  Serial.print("THE UID OF THE SCANNED CARD IS : ");
+  array_to_string(mfrc522.uid.uidByte, mfrc522.uid.size, str);
+  StrUID = String(str);
+  Serial.println(StrUID);
+  return 1;
+}
+
 void setup() {
   Serial.begin(115200);
   pinMode(BUZZER_PIN, OUTPUT);
   digitalWrite(BUZZER_PIN, LOW);
 
+  // Start the MFRC522 exactly like the proven reader sketch.
   SPI.begin();
-  rfid.PCD_Init();
-  delay(100);
+  mfrc522.PCD_Init();
+  delay(500);   // Give the RC522 module time to settle before first read
 
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   Serial.print("Connecting to WiFi");
@@ -78,21 +112,13 @@ void loop() {
     return;
   }
 
-  if (!rfid.PICC_IsNewCardPresent() || !rfid.PICC_ReadCardSerial()) {
-    return;
-  }
+  readsuccess = getid();
+  if (!readsuccess) return;
 
-  String uid = "";
-  for (byte i = 0; i < rfid.uid.size; i++) {
-    if (rfid.uid.uidByte[i] < 0x10) uid += "0";
-    uid += String(rfid.uid.uidByte[i], HEX);
-    if (i < rfid.uid.size - 1) uid += ":";
-  }
-  uid.toUpperCase();
+  mfrc522.PICC_HaltA();
+  mfrc522.PCD_StopCrypto1();
 
-  rfid.PICC_HaltA();
-  rfid.PCD_StopCrypto1();
-
+  String uid = StrUID;
   if (uid == lastUID && millis() - lastScanTime < DEBOUNCE_MS) {
     return;
   }
