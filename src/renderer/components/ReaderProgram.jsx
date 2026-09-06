@@ -105,6 +105,10 @@ function ReaderProgram({ apiUrl }) {
   const doFlash = async () => {
     setOutput([]);
     setDoneStatus(null);
+    // Release the serial port so the flash can take the board.
+    if (monitorOn && monitorJobId) {
+      await stopMonitor();
+    }
     setMonitorOn(false);
     setBusy(true);
     const r = await fetch(`${apiUrl}/firmware/flash`, {

@@ -96,6 +96,11 @@ function registerFirmwareRoutes(app) {
       if (job.lines.length > 5000) job.lines.splice(0, job.lines.length - 5000);
     };
 
+    // Free the serial port before flashing so esptool can take the board
+    // (a still-running monitor would cause a "device disconnected or
+    // multiple access on port" error).
+    if (flash && config && config.port) stopMonitorOnPort(config.port);
+
     const runner = flash ? flashFirmware(config, onLog) : buildFirmware(config, onLog);
 
     runner.then((result) => {
@@ -161,20 +166,36 @@ function registerFirmwareRoutes(app) {
       job.lines.push(line);
       if (job.lines.length > 10000) job.lines.splice(0, job.lines.length - 10000);
     }, baud);
-    monitors.set(id, handle);
+    monitors.set(id, { handle, port });
     res.json({ id, status: 'running' });
   });
 
   // Stop a running serial monitor.
   router.post('/monitor/:id/stop', (req, res) => {
     const id = req.params.id;
-    const handle = monitors.get(id);
-    const job = jobs.get(id);
-    if (handle) handle.stop();
-    if (job) job.status = 'stopped';
+    const entry = monitors.get(id);
+    if (entry) entry.handle.stop();
+    else {
+      const job = jobs.get(id);
+      if (job) job.status = 'stopped';
+    }
     monitors.delete(id);
+    jobs.get(id) && (jobs.get(id).status = 'stopped');
     res.json({ ok: true });
   });
+
+  // Stop any serial monitor currently holding the given port (so a flash can
+  // take the board). No-op if none.
+  function stopMonitorOnPort(port) {
+    for (const [id, entry] of monitors) {
+      if (port && entry.port === port) {
+        entry.handle.stop();
+        monitors.delete(id);
+        const job = jobs.get(id);
+        if (job) job.status = 'stopped';
+      }
+    }
+  }
 
   app.use('/api/firmware', router);
 }

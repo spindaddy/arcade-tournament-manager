@@ -131,8 +131,30 @@ app.post('/api/scan', (req, res) => {
       ORDER BY start_time DESC LIMIT 1
     `).get(badge.player_id);
 
+    if (!machine) {
+      const pacing = db.prepare('SELECT name FROM players WHERE id = ?').get(badge.player_id);
+      if (activeSession) {
+        db.prepare(`UPDATE game_sessions SET end_time = datetime('now') WHERE id = ?`).run(activeSession.id);
+        clearObsSource(activeSession.machine_id);
+        return res.json({
+          status: 'checked_out',
+          player_id: badge.player_id,
+          player_name: pacing ? pacing.name : 'Unknown',
+          reader_id,
+          message: 'Reader has no machine assigned — player set inactive'
+        });
+      }
+      return res.json({
+        status: 'inactive',
+        player_id: badge.player_id,
+        player_name: pacing ? pacing.name : 'Unknown',
+        reader_id,
+        message: 'Reader has no machine assigned'
+      });
+    }
+
     if (activeSession) {
-      if (activeSession.machine_id !== (machine ? machine.id : reader_id)) {
+      if (activeSession.machine_id !== machine.id) {
         db.prepare(`UPDATE game_sessions SET end_time = datetime('now') WHERE id = ?`)
           .run(activeSession.id);
         
@@ -140,7 +162,7 @@ app.post('/api/scan', (req, res) => {
         db.prepare(`
           INSERT INTO game_sessions (id, player_id, machine_id, start_time)
           VALUES (?, ?, ?, datetime('now'))
-        `).run(newSessionId, badge.player_id, machine ? machine.id : reader_id);
+        `).run(newSessionId, badge.player_id, machine.id);
 
         const switchedPlayer = db.prepare('SELECT name FROM players WHERE id = ?').get(badge.player_id);
         clearObsSource(activeSession.machine_id);
@@ -149,14 +171,14 @@ app.post('/api/scan', (req, res) => {
         return res.json({
           status: 'switched_game',
           player_id: badge.player_id,
-          new_machine: machine ? machine.name : reader_id,
+          new_machine: machine.name,
           previous_machine_id: activeSession.machine_id
         });
       }
       return res.json({
         status: 'already_checkedin',
         player_id: badge.player_id,
-        machine: machine ? machine.name : reader_id
+        machine: machine.name
       });
     }
 
@@ -164,7 +186,7 @@ app.post('/api/scan', (req, res) => {
     db.prepare(`
       INSERT INTO game_sessions (id, player_id, machine_id, start_time)
       VALUES (?, ?, ?, datetime('now'))
-    `).run(sessionId, badge.player_id, machine ? machine.id : reader_id);
+    `).run(sessionId, badge.player_id, machine.id);
 
     const player = db.prepare('SELECT name FROM players WHERE id = ?').get(badge.player_id);
 
@@ -173,7 +195,7 @@ app.post('/api/scan', (req, res) => {
     res.json({
       status: 'checked_in',
       player_name: player ? player.name : 'Unknown',
-      machine: machine ? machine.name : reader_id,
+      machine: machine.name,
       session_id: sessionId
     });
 

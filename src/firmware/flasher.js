@@ -91,7 +91,23 @@ async function flashFirmware(config, onLog) {
     onLog && onLog(`\nUsing serial port: ${config.port}`);
   }
   onLog && onLog('\nFlashing to reader over USB...');
-  const flashCode = (await runStream(pio, args, {}, onLog)).code;
+  const tail = [];
+  const onLogTail = (l) => {
+    tail.push(l);
+    if (tail.length > 25) tail.shift();
+    onLog && onLog(l);
+  };
+  const flashCode = (await runStream(pio, args, {}, onLogTail)).code;
+  if (flashCode !== 0) {
+    const blob = tail.join('\n');
+    if (/Invalid head of packet|Failed to connect|No response|Cannot open port|readiness to read|already in use|timed out/i.test(blob)) {
+      onLog && onLog('\nHint: the board did not enter its bootloader (or the port is busy).');
+      onLog && onLog('  1) Unplug and replug the USB cable to power-cycle the board.');
+      onLog && onLog('  2) Click Build &amp; Flash again, and when the log shows "Connecting...." tap the RST button once.');
+      onLog && onLog('  (If RST is hard to reach: hold FLASH, tap RST once, release FLASH, then flash.');
+      onLog && onLog('   Some NodeMCU clones do not wire the auto-reset pins, so a manual reset is required.)');
+    }
+  }
   return { code: flashCode, dir, flashed: flashCode === 0 };
 }
 
