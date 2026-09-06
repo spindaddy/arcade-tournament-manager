@@ -67,6 +67,10 @@ const char* READER_ID      = "${escUid(readerId)}";  // Unique per reader!
 #define SS_PIN       ${pins.ss}   // D2
 #define RST_PIN      ${pins.rst}   // D1
 #define BUZZER_PIN   ${pins.buzzer}  // D0
+#define LED_PIN      D4               // GPIO2 onboard blue LED (active-low) or external LED
+
+#define LED_ON   LOW
+#define LED_OFF  HIGH
 
 MFRC522 mfrc522(SS_PIN, RST_PIN);
 WiFiClient client;
@@ -79,11 +83,42 @@ int readsuccess;          // Was a card present and read this pass?
 char str[32] = "";        // Scratch buffer for hex formatting
 String StrUID = "";       // UID of the last scan
 
-// Beep for 1 second on a successful check-in
-void successBeep() {
-  digitalWrite(BUZZER_PIN, HIGH);   // active buzzer = beep on
-  delay(1000);
-  digitalWrite(BUZZER_PIN, LOW);    // beep off
+void flashLed(int onMs) {
+  digitalWrite(LED_PIN, LED_ON);
+  delay(onMs);
+  digitalWrite(LED_PIN, LED_OFF);
+}
+
+// Recognized badge (checked_in / already_checkedin / switched_game)
+void recognizedFeedback() {
+  digitalWrite(BUZZER_PIN, HIGH);
+  for (int i = 0; i < 5; i++) {
+    digitalWrite(LED_PIN, LED_ON);
+    delay(100);
+    digitalWrite(LED_PIN, LED_OFF);
+    delay(100);
+  }
+  digitalWrite(BUZZER_PIN, LOW);
+}
+
+// Badge not registered to any player
+void unknownFeedback() {
+  for (int i = 0; i < 2; i++) {
+    digitalWrite(BUZZER_PIN, HIGH); delay(80);
+    digitalWrite(BUZZER_PIN, LOW);  delay(60);
+    flashLed(60);
+    delay(60);
+  }
+}
+
+// Server unreachable / HTTP error
+void failFeedback() {
+  for (int i = 0; i < 3; i++) {
+    digitalWrite(BUZZER_PIN, HIGH); delay(60);
+    digitalWrite(BUZZER_PIN, LOW);  delay(40);
+    flashLed(50);
+    delay(50);
+  }
 }
 
 // Format a byte array as uppercase hex with ':' separators.
@@ -116,6 +151,8 @@ void setup() {
   Serial.begin(115200);
   pinMode(BUZZER_PIN, OUTPUT);
   digitalWrite(BUZZER_PIN, LOW);
+  pinMode(LED_PIN, OUTPUT);
+  digitalWrite(LED_PIN, LED_OFF);
 
   // Start the MFRC522 exactly like the proven reader sketch.
   SPI.begin();
@@ -169,13 +206,18 @@ void sendScan(String uid) {
   if (httpCode > 0) {
     String response = http.getString();
     Serial.println("Response: " + response);
-
-    // Beep for 1 second only on a successful check-in
-    if (response.indexOf("checked_in") != -1) {
-      successBeep();
+    if (response.indexOf("checked_in") != -1 ||
+        response.indexOf("already_checkedin") != -1 ||
+        response.indexOf("switched_game") != -1) {
+      recognizedFeedback();
+    } else if (response.indexOf("unknown_badge") != -1) {
+      unknownFeedback();
+    } else {
+      failFeedback();
     }
   } else {
     Serial.println("FAILED: " + http.errorToString(httpCode));
+    failFeedback();
   }
   http.end();
 }

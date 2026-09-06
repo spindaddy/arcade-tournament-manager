@@ -361,7 +361,7 @@ function startApiServer() {
         if (!server) return;
         await obsManager.updateTextSource(server, machine.obs_source_name, playerName || '');
       } catch (e) {
-        // OBS push failure is non-fatal for the scan
+        console.error('OBS update failed:', e.message || e);
       }
     }
 
