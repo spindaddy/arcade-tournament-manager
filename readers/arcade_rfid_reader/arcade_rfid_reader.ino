@@ -70,11 +70,13 @@ void flashLed(int onMs) {
 
 // Recognized badge (checked_in / already_checkedin / switched_game)
 void recognizedFeedback() {
-  digitalWrite(BUZZER_PIN, BUZZER_ON);
-  digitalWrite(LED_PIN, LED_ON);
-  delay(150);
-  digitalWrite(LED_PIN, LED_OFF);
-  digitalWrite(BUZZER_PIN, BUZZER_OFF);
+  for (int i = 0; i < 2; i++) {
+    digitalWrite(BUZZER_PIN, BUZZER_ON);
+    delay(100);
+    digitalWrite(BUZZER_PIN, BUZZER_OFF);
+    flashLed(100);
+    delay(200);
+  }
 }
 
 // Badge not registered to any player
