@@ -6,7 +6,10 @@ function ReaderProgram({ apiUrl }) {
     password: '',
     serverUrl: '',
     readerId: 'reader-01',
-    flash: true
+    flash: true,
+    beepEnabled: true,
+    ledEnabled: true,
+    feedbackCount: 2
   });
   const [toolStatus, setToolStatus] = useState(null);
   const [connection, setConnection] = useState(null);
@@ -44,7 +47,10 @@ function ReaderProgram({ apiUrl }) {
         password: saved.password ?? f.password,
         serverUrl: saved.serverUrl ?? f.serverUrl,
         readerId: saved.readerId ?? f.readerId,
-        flash: saved.flash ?? f.flash
+        flash: saved.flash ?? f.flash,
+        beepEnabled: saved.beepEnabled ?? f.beepEnabled,
+        ledEnabled: saved.ledEnabled ?? f.ledEnabled,
+        feedbackCount: saved.feedbackCount ?? f.feedbackCount
       }));
       if (saved.port) setPort(saved.port);
       if (saved.baud) setMonitorBaud(saved.baud);
@@ -61,6 +67,9 @@ function ReaderProgram({ apiUrl }) {
         serverUrl: form.serverUrl,
         readerId: form.readerId,
         flash: form.flash,
+        beepEnabled: form.beepEnabled,
+        ledEnabled: form.ledEnabled,
+        feedbackCount: form.feedbackCount,
         port,
         baud: monitorBaud
       }).catch(() => {});
@@ -87,7 +96,10 @@ function ReaderProgram({ apiUrl }) {
     password: form.password,
     serverUrl: form.serverUrl,
     readerId: form.readerId,
-    port
+    port,
+    beepEnabled: form.beepEnabled,
+    ledEnabled: form.ledEnabled,
+    feedbackCount: form.feedbackCount
   });
 
   const doPreview = async () => {
@@ -237,6 +249,31 @@ function ReaderProgram({ apiUrl }) {
             <input type="checkbox" checked={form.flash} onChange={(e) => setForm((f) => ({ ...f, flash: e.target.checked }))} />
             Flash to reader after compiling
           </label>
+
+          <div style={{ borderTop: '1px solid var(--border)', paddingTop: '12px' }}>
+            <h3 className="card-title" style={{ fontSize: '14px', margin: '0 0 8px' }}>Recognized-scan feedback</h3>
+            <div style={{ display: 'flex', gap: '18px', alignItems: 'center', flexWrap: 'wrap' }}>
+              <label className="checkbox-label">
+                <input type="checkbox" checked={form.beepEnabled} onChange={(e) => setForm((f) => ({ ...f, beepEnabled: e.target.checked }))} />
+                Beep
+              </label>
+              <label className="checkbox-label">
+                <input type="checkbox" checked={form.ledEnabled} onChange={(e) => setForm((f) => ({ ...f, ledEnabled: e.target.checked }))} />
+                Flash LED
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: 'var(--text-secondary)' }}>
+                Pulse count
+                <input
+                  type="number"
+                  min="1"
+                  max="9"
+                  value={form.feedbackCount}
+                  onChange={(e) => setForm((f) => ({ ...f, feedbackCount: Number(e.target.value) }))}
+                  style={{ width: '56px' }}
+                />
+              </label>
+            </div>
+          </div>
 
           <div style={{ display: 'flex', gap: '10px', marginTop: '4px', flexWrap: 'wrap' }}>
             <button className="btn btn-secondary" onClick={doPreview}>Preview Firmware</button>

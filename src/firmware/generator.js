@@ -36,6 +36,12 @@ function generateIno(config = {}) {
   const readerId = config.readerId || 'reader-01';
   const pins = Object.assign({}, DEFAULT_PINS, config.pins || {});
 
+  const feedback = {
+    beep: config.beepEnabled !== false,
+    led: config.ledEnabled !== false,
+    count: Math.max(1, Math.min(9, parseInt(config.feedbackCount, 10) || 2))
+  };
+
   return `/*
  * Arcade Tournament Manager - ESP8266 NodeMCU RFID Reader
  * =======================================================
@@ -80,6 +86,14 @@ const char* READER_ID      = "${escUid(readerId)}";  // Unique per reader!
 #define BUZZER_ON   LOW
 #define BUZZER_OFF  HIGH
 
+// Recognized-scan feedback knobs (set from the Reader Program UI):
+// FEEDBACK_BEEP_ENABLED = 1 -> buzzer chirps, 0 -> silent
+// FEEDBACK_LED_ENABLED  = 1 -> LED flashes,   0 -> no flash
+// FEEDBACK_COUNT        = how many beep/flash pulses (1-9)
+#define FEEDBACK_BEEP_ENABLED  ${feedback.beep ? 1 : 0}
+#define FEEDBACK_LED_ENABLED   ${feedback.led ? 1 : 0}
+#define FEEDBACK_COUNT         ${feedback.count}
+
 MFRC522 mfrc522(SS_PIN, RST_PIN);
 WiFiClient client;
 
@@ -99,12 +113,21 @@ void flashLed(int onMs) {
 
 // Recognized badge (checked_in / already_checkedin / switched_game)
 void recognizedFeedback() {
-  for (int i = 0; i < 2; i++) {
+  for (int i = 0; i < FEEDBACK_COUNT; i++) {
+#if FEEDBACK_BEEP_ENABLED
     digitalWrite(BUZZER_PIN, BUZZER_ON);
-    delay(100);
+#endif
+#if FEEDBACK_LED_ENABLED
+    digitalWrite(LED_PIN, LED_ON);
+#endif
+    delay(150);
+#if FEEDBACK_BEEP_ENABLED
     digitalWrite(BUZZER_PIN, BUZZER_OFF);
-    flashLed(100);
-    delay(200);
+#endif
+#if FEEDBACK_LED_ENABLED
+    digitalWrite(LED_PIN, LED_OFF);
+#endif
+    delay(250);
   }
 }
 
