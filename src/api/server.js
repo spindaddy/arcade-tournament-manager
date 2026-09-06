@@ -98,6 +98,32 @@ async function clearObsSource(machineIdOrReaderId) {
   }
 }
 
+async function checkObsInput(obsServerId, obsSourceName) {
+  const warnings = [];
+  const server = obsServerId ? db.prepare('SELECT * FROM obs_servers WHERE id = ?').get(obsServerId) : null;
+  if (obsServerId && !server) {
+    warnings.push(`OBS server not found (id ${obsServerId}). Pick a server on the OBS page.`);
+    return { ok: false, warnings };
+  }
+  if (!server) return { ok: true, warnings };
+  if (!obsSourceName) {
+    warnings.push(`No OBS text source set for this machine — players won't appear in OBS. Use the exact name (e.g. Player3) of a text source you created in OBS.`);
+    return { ok: false, warnings };
+  }
+  try {
+    const inputs = await Promise.race([
+      obsManager.listInputs(server),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('timed out')), 6000))
+    ]);
+    if (!inputs.includes(obsSourceName)) {
+      warnings.push(`OBS source "${obsSourceName}" doesn't exist on server "${server.name}". Create a text source with that exact name in OBS, or players won't appear on it.`);
+    }
+  } catch (e) {
+    warnings.push(`Could not verify OBS source on server "${server.name}": ${e.message || 'unreachable'}. OBS must be running and the server connected for players to appear.`);
+  }
+  return { ok: warnings.length === 0, warnings };
+}
+
 // RFID scan endpoint
 app.post('/api/scan', (req, res) => {
   const { badge_uid, reader_id } = req.body;
@@ -352,7 +378,7 @@ app.get('/api/machines', (req, res) => {
 });
 
 // Register arcade machine
-app.post('/api/machines', (req, res) => {
+app.post('/api/machines', async (req, res) => {
   const { name, reader_id, location, is_active, obs_source_name, obs_server_id } = req.body;
 
   if (!name || !reader_id) {
@@ -365,16 +391,19 @@ app.post('/api/machines', (req, res) => {
     VALUES (?, ?, ?, ?, ?, ?, ?)
   `).run(id, name, reader_id, location || null, is_active !== undefined ? (is_active ? 1 : 0) : 1, obs_source_name || null, obs_server_id || null);
 
-  res.json(db.prepare('SELECT * FROM arcade_machines WHERE id = ?').get(id));
+  const check = await checkObsInput(obs_server_id, obs_source_name);
+  res.json({ ...db.prepare('SELECT * FROM arcade_machines WHERE id = ?').get(id), warnings: check.warnings });
 });
 
 // Update arcade machine
-app.put('/api/machines/:id', (req, res) => {
+app.put('/api/machines/:id', async (req, res) => {
   const { name, reader_id, location, is_active, obs_source_name, obs_server_id } = req.body;
   const machine = db.prepare('SELECT * FROM arcade_machines WHERE id = ?').get(req.params.id);
   if (!machine) return res.status(404).json({ error: 'Machine not found' });
   db.prepare(`UPDATE arcade_machines SET name = ?, reader_id = ?, location = ?, is_active = ?, obs_source_name = ?, obs_server_id = ? WHERE id = ?`).run(name || machine.name, reader_id || machine.reader_id, location !== undefined ? location : machine.location, is_active !== undefined ? (is_active ? 1 : 0) : machine.is_active, obs_source_name !== undefined ? obs_source_name : machine.obs_source_name, obs_server_id !== undefined ? (obs_server_id || null) : machine.obs_server_id, machine.id);
-  res.json(db.prepare('SELECT * FROM arcade_machines WHERE id = ?').get(machine.id));
+  const updated = db.prepare('SELECT * FROM arcade_machines WHERE id = ?').get(machine.id);
+  const check = await checkObsInput(updated.obs_server_id, updated.obs_source_name);
+  res.json({ ...updated, warnings: check.warnings });
 });
 
 // Delete arcade machine

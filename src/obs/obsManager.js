@@ -34,6 +34,12 @@ async function testConnection(server) {
   return result;
 }
 
+async function listInputs(server) {
+  const client = await connect(server);
+  const { inputs } = await client._sendRequest('GetInputList', {});
+  return (inputs || []).map((i) => i.inputName);
+}
+
 function disconnect(serverId) {
   const client = clients.get(serverId);
   if (client) {
@@ -49,4 +55,4 @@ function disconnectAll() {
   clients.clear();
 }
 
-module.exports = { getClient, clientStatus, connect, updateTextSource, testConnection, disconnect, disconnectAll };
+module.exports = { getClient, clientStatus, connect, updateTextSource, testConnection, listInputs, disconnect, disconnectAll };

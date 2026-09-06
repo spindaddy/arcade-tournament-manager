@@ -52,23 +52,29 @@ function Machines({ apiUrl }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    let saved;
     try {
       if (editing) {
-        await fetch(`${apiUrl}/machines/${editing.id}`, {
+        const res = await fetch(`${apiUrl}/machines/${editing.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(formData)
         });
+        saved = await res.json();
       } else {
-        await fetch(`${apiUrl}/machines`, {
+        const res = await fetch(`${apiUrl}/machines`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(formData)
         });
+        saved = await res.json();
       }
       setShowModal(false);
       setEditing(null);
       fetchMachines();
+      if (saved && saved.warnings && saved.warnings.length) {
+        alert('Machine saved with OBS warnings:\n\n' + saved.warnings.join('\n'));
+      }
     } catch (error) {
       console.error('Failed to save machine:', error);
     }
