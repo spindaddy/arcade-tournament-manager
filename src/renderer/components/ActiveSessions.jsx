@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { parseDbTime, formatElapsed } from '../lib/time';
 
 function ActiveSessions({ apiUrl }) {
   const [sessions, setSessions] = useState([]);
@@ -47,8 +48,8 @@ function ActiveSessions({ apiUrl }) {
                 <tr key={session.id}>
                   <td>{session.player_name}</td>
                   <td>{session.machine_name || session.reader_id}</td>
-                  <td>{new Date(session.start_time).toLocaleString()}</td>
-                  <td>{formatDuration(session.start_time)}</td>
+                  <td>{parseDbTime(session.start_time) ? parseDbTime(session.start_time).toLocaleString() : '-'}</td>
+                  <td>{formatElapsed(session.start_time)}</td>
                 </tr>
               ))}
             </tbody>
@@ -57,20 +58,6 @@ function ActiveSessions({ apiUrl }) {
       </div>
     </div>
   );
-}
-
-function formatDuration(startTime) {
-  const start = new Date(startTime);
-  const now = new Date();
-  const diff = Math.floor((now - start) / 1000);
-  const hours = Math.floor(diff / 3600);
-  const minutes = Math.floor((diff % 3600) / 60);
-  const seconds = diff % 60;
-
-  if (hours > 0) {
-    return `${hours}h ${minutes}m`;
-  }
-  return `${minutes}m ${seconds}s`;
 }
 
 export default ActiveSessions;

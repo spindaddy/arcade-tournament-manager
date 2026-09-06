@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { parseDbTime, formatElapsed } from '../lib/time';
 
 function Dashboard({ stats, apiUrl }) {
   const [recentScans, setRecentScans] = useState([]);
@@ -84,8 +85,8 @@ function Dashboard({ stats, apiUrl }) {
                 <tr key={session.id}>
                   <td>{session.player_name}</td>
                   <td>{session.machine_name || session.reader_id}</td>
-                  <td>{new Date(session.start_time).toLocaleTimeString()}</td>
-                  <td>{getDuration(session.start_time)}</td>
+                  <td>{parseDbTime(session.start_time) ? parseDbTime(session.start_time).toLocaleTimeString() : '-'}</td>
+                  <td>{formatElapsed(session.start_time)}</td>
                 </tr>
               ))}
             </tbody>
@@ -130,15 +131,6 @@ function ConnectionRow({ label, value, target }) {
       </a>
     </div>
   );
-}
-
-function getDuration(startTime) {
-  const start = new Date(startTime);
-  const now = new Date();
-  const diff = Math.floor((now - start) / 1000);
-  const minutes = Math.floor(diff / 60);
-  const seconds = diff % 60;
-  return `${minutes}m ${seconds}s`;
 }
 
 export default Dashboard;
