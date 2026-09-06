@@ -40,6 +40,7 @@ const char* READER_ID      = "reader-01";  // Unique per reader!
 #define BUZZER_PIN   D0   // GPIO16
 
 MFRC522 rfid(SS_PIN, RST_PIN);
+WiFiClient client;
 String lastUID = "";
 unsigned long lastScanTime = 0;
 const unsigned long DEBOUNCE_MS = 3000;  // Ignore same badge for 3 seconds
@@ -104,7 +105,7 @@ void loop() {
 
 void sendScan(String uid) {
   HTTPClient http;
-  http.begin(SERVER_URL);
+  http.begin(client, SERVER_URL);
   http.addHeader("Content-Type", "application/json");
 
   String payload = "{\"badge_uid\":\"" + uid
