@@ -118,7 +118,7 @@ function listPorts() {
           port: port.trim(),
           description: description ? description.split(':').slice(1).join(':').trim() : '',
           hardwareId: hwid ? hwid.split(':').slice(1).join(':').trim() : '',
-          likelyReader: /esp32|esp8266|cp210|ch34|silicon|ftdi|debug-console|usb/i.test(text)
+          likelyReader: /esp32|esp8266|cp210|ch34|silicon|ftdi|usb/i.test(text)
         });
       }
       resolve(ports);

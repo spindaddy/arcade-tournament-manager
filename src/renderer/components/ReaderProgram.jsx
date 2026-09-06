@@ -24,7 +24,7 @@ function ReaderProgram({ apiUrl }) {
   useEffect(() => {
     fetch(`${apiUrl}/connection`).then((r) => r.json()).then((c) => {
       setConnection(c);
-      setForm((f) => ({ ...f, serverUrl: c.scanEndpoint || f.serverUrl }));
+      setForm((f) => ({ ...f, serverUrl: f.serverUrl || c.scanEndpoint || '' }));
     }).catch(() => {});
     fetch(`${apiUrl}/firmware/status`).then((r) => r.json()).then(setToolStatus).catch(() => {});
     loadPorts();
@@ -34,14 +34,48 @@ function ReaderProgram({ apiUrl }) {
     if (outputRef.current) outputRef.current.scrollTop = outputRef.current.scrollHeight;
   }, [output]);
 
+  // Restore the last used WiFi / serial settings, if any.
+  useEffect(() => {
+    if (!window.electronAPI || typeof window.electronAPI.getStore !== 'function') return;
+    window.electronAPI.getStore('readerProgram').then((saved) => {
+      if (!saved) return;
+      setForm((f) => ({
+        ssid: saved.ssid ?? f.ssid,
+        password: saved.password ?? f.password,
+        serverUrl: saved.serverUrl ?? f.serverUrl,
+        readerId: saved.readerId ?? f.readerId,
+        flash: saved.flash ?? f.flash
+      }));
+      if (saved.port) setPort(saved.port);
+      if (saved.baud) setMonitorBaud(saved.baud);
+    }).catch(() => {});
+  }, []);
+
+  // Persist the last used WiFi / serial settings (debounced).
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (!window.electronAPI || typeof window.electronAPI.setStore !== 'function') return;
+      window.electronAPI.setStore('readerProgram', {
+        ssid: form.ssid,
+        password: form.password,
+        serverUrl: form.serverUrl,
+        readerId: form.readerId,
+        flash: form.flash,
+        port,
+        baud: monitorBaud
+      }).catch(() => {});
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [form, port, monitorBaud]);
+
   const loadPorts = async () => {
     try {
       const r = await fetch(`${apiUrl}/firmware/ports`);
       const data = await r.json();
       setPorts(data.ports || []);
-      if (!port && data.ports && data.ports.length) {
+      if (data.ports && data.ports.length) {
         const preferred = data.ports.find((p) => p.likelyReader) || data.ports[0];
-        setPort(preferred.port);
+        setPort((prev) => prev || preferred.port);
       }
     } catch (e) { console.error('Failed to load ports', e); }
   };
