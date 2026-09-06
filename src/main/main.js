@@ -184,7 +184,6 @@ function startApiServer() {
         end_time DATETIME,
         score INTEGER DEFAULT 0,
         FOREIGN KEY (player_id) REFERENCES players(id),
-        FOREIGN KEY (machine_id) REFERENCES arcade_machines(id),
         FOREIGN KEY (tournament_id) REFERENCES tournaments(id)
       );
       CREATE TABLE IF NOT EXISTS settings (
@@ -244,7 +243,6 @@ function startApiServer() {
             end_time DATETIME,
             score INTEGER DEFAULT 0,
             FOREIGN KEY (player_id) REFERENCES players(id),
-            FOREIGN KEY (machine_id) REFERENCES arcade_machines(id),
             FOREIGN KEY (tournament_id) REFERENCES tournaments(id)
           );
         `);
@@ -253,6 +251,33 @@ function startApiServer() {
       }
     } catch (migrationError) {
       console.error('game_sessions migration skipped:', migrationError.message);
+    }
+
+    // Migration: drop machine_id FK from game_sessions so scans on unregistered
+    // readers (raw reader_id fallback) still record an active session.
+    try {
+      const gsFks = db.prepare(`PRAGMA foreign_key_list(game_sessions)`).all();
+      if (gsFks.some((fk) => fk.table === 'arcade_machines')) {
+        db.pragma('foreign_keys = OFF');
+        db.exec(`ALTER TABLE game_sessions RENAME TO game_sessions_old;
+          CREATE TABLE game_sessions (
+            id TEXT PRIMARY KEY,
+            player_id TEXT NOT NULL,
+            machine_id TEXT,
+            tournament_id TEXT,
+            start_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+            end_time DATETIME,
+            score INTEGER DEFAULT 0,
+            FOREIGN KEY (player_id) REFERENCES players(id),
+            FOREIGN KEY (tournament_id) REFERENCES tournaments(id)
+          );
+          INSERT INTO game_sessions (id, player_id, machine_id, tournament_id, start_time, end_time, score)
+            SELECT id, player_id, machine_id, tournament_id, start_time, end_time, score FROM game_sessions_old;
+          DROP TABLE game_sessions_old;`);
+        db.pragma('foreign_keys = ON');
+      }
+    } catch (migrationError) {
+      console.error('game_sessions machine_id FK migration skipped:', migrationError.message);
     }
 
     // Migration: add obs_source_name to arcade_machines
@@ -365,6 +390,22 @@ function startApiServer() {
       }
     }
 
+    // Remove a player's name from a machine's OBS source (old machine on switch).
+    async function clearObsSource(machineIdOrReaderId) {
+      try {
+        let source = db.prepare('SELECT obs_source_name, obs_server_id FROM arcade_machines WHERE id = ?').get(machineIdOrReaderId);
+        if (!source) {
+          source = db.prepare('SELECT obs_source_name, obs_server_id FROM arcade_machines WHERE reader_id = ?').get(machineIdOrReaderId);
+        }
+        if (!source || !source.obs_source_name || !source.obs_server_id) return;
+        const server = db.prepare('SELECT * FROM obs_servers WHERE id = ?').get(source.obs_server_id);
+        if (!server) return;
+        await obsManager.updateTextSource(server, source.obs_source_name, '');
+      } catch (e) {
+        console.error('OBS clear failed:', e.message || e);
+      }
+    }
+
     apiApp.post('/api/scan', (req, res) => {
       const { badge_uid, reader_id } = req.body;
       if (!badge_uid || !reader_id) {
@@ -389,6 +430,7 @@ function startApiServer() {
             const newSessionId = uuidv4();
             db.prepare(`INSERT INTO game_sessions (id, player_id, machine_id, start_time) VALUES (?, ?, ?, datetime('now'))`).run(newSessionId, badge.player_id, machine ? machine.id : reader_id);
             const sp = db.prepare('SELECT name FROM players WHERE id = ?').get(badge.player_id);
+            clearObsSource(activeSession.machine_id);
             pushObsUpdate(reader_id, sp ? sp.name : 'Unknown');
             return res.json({ status: 'switched_game', player_id: badge.player_id, new_machine: machine ? machine.name : reader_id, previous_machine_id: activeSession.machine_id });
           }

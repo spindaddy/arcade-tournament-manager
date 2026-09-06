@@ -82,6 +82,22 @@ async function pushObsUpdate(readerId, playerName) {
   }
 }
 
+// Remove a player's name from a machine's OBS source (old machine on switch).
+async function clearObsSource(machineIdOrReaderId) {
+  try {
+    let source = db.prepare('SELECT obs_source_name, obs_server_id FROM arcade_machines WHERE id = ?').get(machineIdOrReaderId);
+    if (!source) {
+      source = db.prepare('SELECT obs_source_name, obs_server_id FROM arcade_machines WHERE reader_id = ?').get(machineIdOrReaderId);
+    }
+    if (!source || !source.obs_source_name || !source.obs_server_id) return;
+    const server = db.prepare('SELECT * FROM obs_servers WHERE id = ?').get(source.obs_server_id);
+    if (!server) return;
+    await obsManager.updateTextSource(server, source.obs_source_name, '');
+  } catch (e) {
+    console.error('OBS clear failed:', e.message || e);
+  }
+}
+
 // RFID scan endpoint
 app.post('/api/scan', (req, res) => {
   const { badge_uid, reader_id } = req.body;
@@ -127,6 +143,7 @@ app.post('/api/scan', (req, res) => {
         `).run(newSessionId, badge.player_id, machine ? machine.id : reader_id);
 
         const switchedPlayer = db.prepare('SELECT name FROM players WHERE id = ?').get(badge.player_id);
+        clearObsSource(activeSession.machine_id);
         pushObsUpdate(reader_id, switchedPlayer ? switchedPlayer.name : 'Unknown');
 
         return res.json({

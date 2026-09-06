@@ -94,7 +94,6 @@ function initializeDatabase() {
       end_time DATETIME,
       score INTEGER DEFAULT 0,
       FOREIGN KEY (player_id) REFERENCES players(id),
-      FOREIGN KEY (machine_id) REFERENCES arcade_machines(id),
       FOREIGN KEY (tournament_id) REFERENCES tournaments(id)
     );
 
@@ -206,7 +205,6 @@ function initializeDatabase() {
           end_time DATETIME,
           score INTEGER DEFAULT 0,
           FOREIGN KEY (player_id) REFERENCES players(id),
-          FOREIGN KEY (machine_id) REFERENCES arcade_machines(id),
           FOREIGN KEY (tournament_id) REFERENCES tournaments(id)
         );
       `);
@@ -215,6 +213,33 @@ function initializeDatabase() {
     }
   } catch (migrationError) {
     console.error('game_sessions migration skipped:', migrationError.message);
+  }
+
+  // Migration: drop machine_id FK from game_sessions so scans on unregistered
+  // readers (raw reader_id fallback) still record an active session.
+  try {
+    const gsFks = db.prepare(`PRAGMA foreign_key_list(game_sessions)`).all();
+    if (gsFks.some((fk) => fk.table === 'arcade_machines')) {
+      db.pragma('foreign_keys = OFF');
+      db.exec(`ALTER TABLE game_sessions RENAME TO game_sessions_old;
+        CREATE TABLE game_sessions (
+          id TEXT PRIMARY KEY,
+          player_id TEXT NOT NULL,
+          machine_id TEXT,
+          tournament_id TEXT,
+          start_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+          end_time DATETIME,
+          score INTEGER DEFAULT 0,
+          FOREIGN KEY (player_id) REFERENCES players(id),
+          FOREIGN KEY (tournament_id) REFERENCES tournaments(id)
+        );
+        INSERT INTO game_sessions (id, player_id, machine_id, tournament_id, start_time, end_time, score)
+          SELECT id, player_id, machine_id, tournament_id, start_time, end_time, score FROM game_sessions_old;
+        DROP TABLE game_sessions_old;`);
+      db.pragma('foreign_keys = ON');
+    }
+  } catch (migrationError) {
+    console.error('game_sessions machine_id FK migration skipped:', migrationError.message);
   }
 }
 
