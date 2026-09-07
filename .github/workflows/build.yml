@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 env:
-  # Produce unsigned installers that can be run via "Open Anyway" / "Run anyway".
+  # Do not pick a random Apple cert. Mac builds are ad-hoc signed instead.
   CSC_IDENTITY_AUTO_DISCOVERY: false
 
 jobs:
@@ -28,12 +28,17 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_IDENTITY_AUTO_DISCOVERY: false
+      - name: Add Mac opener helper
+        run: |
+          cp scripts/open-macos.command "release/Open Arcade Tournament Manager.command"
+          chmod +x "release/Open Arcade Tournament Manager.command"
       - uses: actions/upload-artifact@v4
         with:
           name: mac-build
           path: |
             release/*.dmg
             release/*.zip
+            release/*.command
           if-no-files-found: error
 
   build-windows:

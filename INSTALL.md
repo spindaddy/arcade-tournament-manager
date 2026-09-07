@@ -23,11 +23,17 @@ This guide covers installing the Arcade Tournament Manager, setting up the netwo
 
 ### macOS
 
-1. Download `Arcade Tournament Manager-x.x.x-mac-arm64.dmg` from [Releases](https://github.com/spindaddy/arcade-tournament-manager/releases)
+1. Download `Arcade Tournament Manager-x.x.x-mac-arm64.dmg` (Apple Silicon) or `-mac-x64.dmg` (Intel) from [Releases](https://github.com/spindaddy/arcade-tournament-manager/releases)
 2. Open the `.dmg` file
 3. Drag **Arcade Tournament Manager** to your Applications folder
-4. On first launch, macOS may block it. Go to **System Settings > Privacy & Security** and click **Open Anyway**
-5. The app is self-contained - no additional software is needed
+4. **Right-click** the app in Applications → **Open** → **Open** (a regular double-click may say the app is damaged)
+5. If it still will not open, download **Open Arcade Tournament Manager.command** from the same release and double-click it, or run this once in Terminal:
+
+   ```bash
+   xattr -cr "/Applications/Arcade Tournament Manager.app"
+   ```
+
+6. The app is self-contained — no additional software is needed
 
 ### Windows
 
