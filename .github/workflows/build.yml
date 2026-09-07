@@ -6,6 +6,10 @@ on:
       - 'v*'
   workflow_dispatch:
 
+env:
+  # Produce unsigned installers that can be run via "Open Anyway" / "Run anyway".
+  CSC_IDENTITY_AUTO_DISCOVERY: false
+
 jobs:
   build-macos:
     runs-on: macos-latest
@@ -20,9 +24,10 @@ jobs:
           python-version: '3.11'
       - run: npm ci
       - run: npx vite build --config vite.config.js
-      - run: npx electron-builder --mac --arm64 -p never
+      - run: npx electron-builder --mac --x64 --arm64 -p never
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_IDENTITY_AUTO_DISCOVERY: false
       - uses: actions/upload-artifact@v4
         with:
           name: mac-build
@@ -48,6 +53,7 @@ jobs:
       - run: npx electron-builder --win -p never
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_IDENTITY_AUTO_DISCOVERY: false
       - uses: actions/upload-artifact@v4
         with:
           name: windows-build
@@ -71,6 +77,7 @@ jobs:
       - run: npx electron-builder --linux -p never
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_IDENTITY_AUTO_DISCOVERY: false
       - uses: actions/upload-artifact@v4
         with:
           name: linux-build
@@ -91,7 +98,7 @@ jobs:
           path: artifacts
       - uses: softprops/action-gh-release@v2
         with:
-          draft: true
+          draft: false
           generate_release_notes: true
           files: |
             artifacts/mac-build/*
