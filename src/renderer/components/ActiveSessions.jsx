@@ -3,6 +3,7 @@ import { parseDbTime, formatElapsed } from '../lib/time';
 
 function ActiveSessions({ apiUrl }) {
   const [sessions, setSessions] = useState([]);
+  const [clearing, setClearing] = useState(false);
 
   useEffect(() => {
     fetchSessions();
@@ -20,6 +21,20 @@ function ActiveSessions({ apiUrl }) {
     }
   };
 
+  const clearAll = async () => {
+    if (!confirm('End ALL active sessions? Players will be set as not playing and their OBS names cleared.')) return;
+    setClearing(true);
+    try {
+      await fetch(`${apiUrl}/sessions/clear`, { method: 'POST' });
+      fetchSessions();
+    } catch (error) {
+      console.error('Failed to clear sessions:', error);
+      alert('Failed to clear sessions');
+    } finally {
+      setClearing(false);
+    }
+  };
+
   return (
     <div>
       <div className="page-header">
@@ -28,6 +43,14 @@ function ActiveSessions({ apiUrl }) {
       </div>
 
       <div className="card">
+        {sessions.length > 0 && (
+          <div className="card-header">
+            <h2 className="card-title">Playing Now</h2>
+            <button className="btn btn-secondary btn-sm" onClick={clearAll} disabled={clearing}>
+              {clearing ? 'Clearing...' : 'End All Sessions'}
+            </button>
+          </div>
+        )}
         {sessions.length === 0 ? (
           <div className="empty-state">
             <div className="icon">🎮</div>

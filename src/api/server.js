@@ -294,6 +294,23 @@ app.get('/api/sessions/active', (req, res) => {
   res.json(sessions);
 });
 
+// End every active session and clear the machines' OBS text sources.
+app.post('/api/sessions/clear', async (req, res) => {
+  try {
+    const active = db.prepare(`SELECT id, machine_id FROM game_sessions WHERE end_time IS NULL`).all();
+    let cleared = 0;
+    for (const s of active) {
+      db.prepare(`UPDATE game_sessions SET end_time = datetime('now') WHERE id = ?`).run(s.id);
+      if (s.machine_id) await clearObsSource(s.machine_id);
+      cleared++;
+    }
+    res.json({ cleared });
+  } catch (error) {
+    console.error('Clear sessions error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // Get all players
 app.get('/api/players', (req, res) => {
   const players = db.prepare('SELECT * FROM players ORDER BY name').all();
