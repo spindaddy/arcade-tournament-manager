@@ -100,7 +100,11 @@ function ReaderSetup({ apiUrl }) {
               )} />
             <PrereqRow label="Serial port available"
               ok={prereqs.serialPortsPresent}
-              detail={prereqs.serialPortsPresent && prereqs.serialPorts.length ? prereqs.serialPorts.map((p) => p.port).join(', ') : 'No device detected. Connect the reader via USB.'} />
+              detail={prereqs.serialPortsPresent && prereqs.serialPorts.length
+                ? prereqs.serialPorts.map((p) => p.port + (p.description ? ` (${p.description})` : '')).join(', ')
+                : (prereqs.platform === 'win32'
+                  ? 'No COM port found. Plug the reader in, then in Device Manager install the CH340 or CP2102 driver if the device has a warning icon. Re-check after it appears as a COM port.'
+                  : 'No device detected. Connect the reader via USB.')} />
           </div>
         )}
       </div>

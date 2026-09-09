@@ -212,7 +212,9 @@ toolchain automatically.
      the Microsoft Store is only a stub and will not work — always use the app's
      install button (or python.org).
    - **Serial port available** — connect the board over USB; the app lists ports
-     and flags ones that look like a reader (CP210x/CH340 drivers).
+     and flags ones that look like a reader (CP210x/CH340). On Windows the port
+     is `COMx` (not `/dev/...`). If nothing appears, open Device Manager and
+     install the CH340 or CP2102 driver so the board shows up as a COM port.
 2. Connect the board to your computer with a USB cable.
 3. In **Reader Program**, select the reader's serial port.
 4. Fill in:

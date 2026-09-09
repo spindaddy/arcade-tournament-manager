@@ -3,7 +3,7 @@ const fs = require('fs');
 const https = require('https');
 const os = require('os');
 const path = require('path');
-const { findPio, runStream, platformioAvailable } = require('./flasher');
+const { findPio, runStream, platformioAvailable, listPorts } = require('./flasher');
 
 // Output from the Windows "app execution alias" stub that just opens the
 // Microsoft Store (signals Python is not actually installed).
@@ -106,29 +106,7 @@ async function pythonAvailable() {
 
 // Detect serial ports so we can surface whether a driver/device is present.
 function serialPorts() {
-  return new Promise((resolve) => {
-    const pio = findPio();
-    const child = spawn(pio, ['device', 'list'], {});
-    let out = '';
-    child.stdout && child.stdout.on('data', (d) => (out += d.toString()));
-    child.stderr && child.stderr.on('data', (d) => (out += d.toString()));
-    child.on('error', () => resolve([]));
-    child.on('close', () => {
-      const ports = [];
-      const blocks = out.split(/\n(?=\/dev\/)/);
-      for (const block of blocks) {
-        const lines = block.split(/\r?\n/);
-        const port = lines.find((l) => /^\/dev\//.test(l.trim()) || /^COM\d+/.test(l.trim()));
-        if (!port) continue;
-        const hwid = lines.find((l) => /^Hardware ID:/i.test(l.trim()));
-        ports.push({
-          port: port.trim(),
-          hardwareId: hwid ? hwid.split(':').slice(1).join(':').trim() : ''
-        });
-      }
-      resolve(ports);
-    });
-  });
+  return listPorts();
 }
 
 // Detect each prerequisite and return a status report.

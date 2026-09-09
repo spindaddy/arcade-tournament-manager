@@ -4,30 +4,48 @@ const os = require('os');
 const path = require('path');
 const { writeWorkspace } = require('./generator');
 
+function spawnOpts(cmd, extra = {}) {
+  const opts = { windowsHide: true, ...extra };
+  if (process.platform === 'win32' && typeof cmd === 'string' && /\.(cmd|bat)$/i.test(cmd)) {
+    opts.shell = true;
+  }
+  return opts;
+}
+
+function findPioPython() {
+  if (process.platform === 'win32') {
+    return path.join(os.homedir(), '.platformio', 'penv', 'Scripts', 'python.exe');
+  }
+  return path.join(os.homedir(), '.platformio', 'penv', 'bin', 'python3');
+}
+
 // Locate the PlatformIO CLI. Prefer the common install under ~/.platformio/penv,
 // otherwise fall back to whatever is on PATH.
 function findPio() {
-  const candidates = [];
-  const penv = path.join(os.homedir(), '.platformio', 'penv', 'bin');
-  if (process.platform === 'win32') {
-    candidates.push(path.join(os.homedir(), '.platformio', 'penv', 'Scripts', 'platformio.exe'));
-    candidates.push(path.join(penv, 'platformio.exe'));
-  } else {
-    candidates.push(path.join(penv, 'pio'));
-    candidates.push(path.join(penv, 'platformio'));
-  }
+  const home = os.homedir();
+  const candidates = process.platform === 'win32'
+    ? [
+        path.join(home, '.platformio', 'penv', 'Scripts', 'platformio.exe'),
+        path.join(home, '.platformio', 'penv', 'Scripts', 'pio.exe'),
+        path.join(home, '.platformio', 'penv', 'Scripts', 'platformio.cmd'),
+        path.join(home, '.platformio', 'penv', 'Scripts', 'pio.cmd')
+      ]
+    : [
+        path.join(home, '.platformio', 'penv', 'bin', 'pio'),
+        path.join(home, '.platformio', 'penv', 'bin', 'platformio')
+      ];
   for (const c of candidates) {
     try {
       if (fs.existsSync(c)) return c;
     } catch (e) { /* ignore */ }
   }
-  return 'pio'; // fall back to PATH
+  return process.platform === 'win32' ? 'platformio.exe' : 'pio';
 }
 
 function platformioAvailable() {
   return new Promise((resolve) => {
     const pio = findPio();
-    const child = spawn(pio, ['--version'], { stdio: 'ignore' });
+    const child = spawn(pio, ['--version'], spawnOpts(pio, { stdio: 'ignore' }));
     child.on('error', () => resolve(false));
     child.on('exit', (code) => resolve(code === 0));
     setTimeout(() => { child.kill(); resolve(false); }, 10000);
@@ -40,7 +58,7 @@ function runStream(cmd, args, opts, onLog) {
   return new Promise((resolve) => {
     let child;
     try {
-      child = spawn(cmd, args, { ...opts });
+      child = spawn(cmd, args, spawnOpts(cmd, { ...opts }));
     } catch (e) {
       onLog && onLog(`[error] ${e.message}`);
       return resolve({ code: -1 });
@@ -111,35 +129,169 @@ async function flashFirmware(config, onLog) {
   return { code: flashCode, dir, flashed: flashCode === 0 };
 }
 
-// List serial ports, flagging those that look like reader/USB devices.
-function listPorts() {
+function spawnCapture(cmd, args, extra = {}) {
   return new Promise((resolve) => {
-    const pio = findPio();
-    const child = spawn(pio, ['device', 'list'], {});
+    let child;
+    try {
+      child = spawn(cmd, args, spawnOpts(cmd, extra));
+    } catch (e) {
+      return resolve({ code: -1, out: '' });
+    }
     let out = '';
     child.stdout && child.stdout.on('data', (d) => (out += d.toString()));
     child.stderr && child.stderr.on('data', (d) => (out += d.toString()));
-    child.on('error', () => resolve([]));
-    child.on('close', () => {
-      const ports = [];
-      const blocks = out.split(/\n(?=\/dev\/)/);
-      for (const block of blocks) {
-        const lines = block.split(/\r?\n/);
-        const port = lines.find((l) => /^\/dev\//.test(l.trim()));
-        if (!port) continue;
-        const description = lines.find((l) => /^Description:/i.test(l.trim()));
-        const hwid = lines.find((l) => /^Hardware ID:/i.test(l.trim()));
-        const text = (port + ' ' + (description || '') + ' ' + (hwid || '')).toLowerCase();
-        ports.push({
-          port: port.trim(),
-          description: description ? description.split(':').slice(1).join(':').trim() : '',
-          hardwareId: hwid ? hwid.split(':').slice(1).join(':').trim() : '',
-          likelyReader: /esp32|esp8266|cp210|ch34|silicon|ftdi|usb/i.test(text)
-        });
-      }
-      resolve(ports);
+    const timer = setTimeout(() => { try { child.kill(); } catch (e) {} }, 15000);
+    child.on('error', () => {
+      clearTimeout(timer);
+      resolve({ code: -1, out: '' });
+    });
+    child.on('close', (code) => {
+      clearTimeout(timer);
+      resolve({ code, out });
     });
   });
+}
+
+function asArray(parsed) {
+  if (parsed == null || parsed === '') return [];
+  return Array.isArray(parsed) ? parsed : [parsed];
+}
+
+function tagPorts(ports) {
+  return (ports || []).map((p) => {
+    const port = String(p.port || p.device || '').trim();
+    const description = p.description || '';
+    const hardwareId = p.hardwareId || p.hwid || '';
+    const text = `${port} ${description} ${hardwareId}`.toLowerCase();
+    return {
+      port,
+      description,
+      hardwareId,
+      likelyReader: /esp32|esp8266|cp210|ch34|silicon|ftdi|usb.?serial|usb.?uart|wch|qinheng/i.test(text)
+    };
+  }).filter((p) => {
+    if (!p.port) return false;
+    const lower = p.port.toLowerCase();
+    if (/bluetooth|debug-console|wlan/.test(lower)) return false;
+    // macOS lists both /dev/cu.* and /dev/tty.*; flashing uses cu.
+    if (process.platform === 'darwin' && /^\/dev\/tty\./.test(p.port)) return false;
+    return true;
+  });
+}
+
+function parsePioText(out) {
+  const ports = [];
+  let current = null;
+  for (const raw of String(out || '').split(/\r?\n/)) {
+    const line = raw.trim();
+    const portMatch = line.match(/^(\/dev\/\S+|COM\d+)$/i);
+    if (portMatch) {
+      if (current) ports.push(current);
+      current = { port: portMatch[1], description: '', hardwareId: '' };
+      continue;
+    }
+    if (!current) continue;
+    if (/^Description:/i.test(line)) {
+      current.description = line.split(':').slice(1).join(':').trim();
+    } else if (/^Hardware ID:/i.test(line)) {
+      current.hardwareId = line.split(':').slice(1).join(':').trim();
+    }
+  }
+  if (current) ports.push(current);
+  return ports;
+}
+
+async function listPortsPyserial() {
+  const script = [
+    'import json,sys',
+    'try:',
+    ' from serial.tools.list_ports import comports',
+    'except ImportError:',
+    ' sys.stdout.write(json.dumps({"ok":False}))',
+    ' sys.exit(0)',
+    'ports=[{"port":p.device,"description":p.description or "","hardwareId":p.hwid or ""} for p in comports()]',
+    'sys.stdout.write(json.dumps({"ok":True,"ports":ports}))'
+  ].join('\n');
+
+  const candidates = [];
+  const pioPy = findPioPython();
+  if (fs.existsSync(pioPy)) candidates.push({ cmd: pioPy, args: ['-c', script] });
+  if (process.platform === 'win32') {
+    candidates.push({ cmd: 'py', args: ['-3', '-c', script] });
+    candidates.push({ cmd: 'python', args: ['-c', script] });
+  } else {
+    candidates.push({ cmd: 'python3', args: ['-c', script] });
+    candidates.push({ cmd: 'python', args: ['-c', script] });
+  }
+
+  for (const c of candidates) {
+    const { out } = await spawnCapture(c.cmd, c.args);
+    const lines = String(out || '').trim().split(/\r?\n/).filter(Boolean);
+    for (let i = lines.length - 1; i >= 0; i--) {
+      try {
+        const parsed = JSON.parse(lines[i]);
+        if (parsed && parsed.ok) return tagPorts(parsed.ports || []);
+      } catch (e) { /* not json */ }
+    }
+  }
+  return null;
+}
+
+async function listPortsPio() {
+  const pio = findPio();
+  const jsonResult = await spawnCapture(pio, ['device', 'list', '--json-output']);
+  try {
+    const parsed = JSON.parse(String(jsonResult.out || '').trim().split(/\r?\n/).filter(Boolean).pop());
+    if (parsed) {
+      return tagPorts(asArray(parsed).map((p) => ({
+        port: p.port || p.device,
+        description: p.description || '',
+        hardwareId: p.hwid || p.hardwareId || ''
+      })));
+    }
+  } catch (e) { /* fall through to text */ }
+  const textResult = jsonResult.out && /COM\d+|\/dev\//i.test(jsonResult.out)
+    ? jsonResult
+    : await spawnCapture(pio, ['device', 'list']);
+  return tagPorts(parsePioText(textResult.out));
+}
+
+async function listPortsWindows() {
+  const ps = [
+    "$ErrorActionPreference='SilentlyContinue'",
+    '$items=@()',
+    "Get-CimInstance Win32_PnPEntity | Where-Object { $_.Name -match '\\(COM\\d+\\)' } | ForEach-Object {",
+    "  $m=[regex]::Match($_.Name,'COM\\d+')",
+    '  if ($m.Success) { $items += [pscustomobject]@{ port=$m.Value; description=$_.Name; hardwareId=$_.PNPDeviceID } }',
+    '}',
+    'if ($items.Count -eq 0) {',
+    '  Get-CimInstance Win32_SerialPort | ForEach-Object {',
+    '    $items += [pscustomobject]@{ port=$_.DeviceID; description=$_.Description; hardwareId=$_.PNPDeviceID }',
+    '  }',
+    '}',
+    "if ($items.Count -eq 0) { '[]' } else { $items | ConvertTo-Json -Compress }"
+  ].join('\n');
+  const { out } = await spawnCapture('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', ps]);
+  try {
+    const parsed = JSON.parse(String(out || '').trim() || '[]');
+    return tagPorts(asArray(parsed));
+  } catch (e) {
+    return [];
+  }
+}
+
+// List serial ports, flagging those that look like reader/USB devices.
+// Windows COM ports were previously ignored because parsing only matched /dev/.
+async function listPorts() {
+  const fromPy = await listPortsPyserial();
+  if (fromPy && fromPy.length) return fromPy;
+  if (process.platform === 'win32') {
+    const win = await listPortsWindows();
+    if (win.length) return win;
+  }
+  const fromPio = await listPortsPio();
+  if (fromPio && fromPio.length) return fromPio;
+  return fromPy || [];
 }
 
 // Start a raw serial monitor on the given port (streams to onLog).
@@ -148,9 +300,9 @@ function listPorts() {
 // from the Node app. Defaults to 115200 (the firmware's Serial.begin rate);
 // 74880 is useful only for the ESP8266 ROM boot log after a reset.
 function startMonitor(port, onLog, baud = 115200) {
-  const py = process.platform === 'win32'
-    ? path.join(os.homedir(), '.platformio', 'penv', 'Scripts', 'python.exe')
-    : path.join(os.homedir(), '.platformio', 'penv', 'bin', 'python3');
+  const py = fs.existsSync(findPioPython())
+    ? findPioPython()
+    : (process.platform === 'win32' ? 'python' : 'python3');
 
   const script = `
 import serial, sys, time
@@ -172,7 +324,7 @@ except Exception as e:
 
   let child;
   try {
-    child = spawn(py, ['-c', script], {});
+    child = spawn(py, ['-c', script], spawnOpts(py));
   } catch (e) {
     onLog && onLog(`[error] ${e.message}`);
     return { child: null, stop() {} };

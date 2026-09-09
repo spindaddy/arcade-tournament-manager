@@ -221,7 +221,7 @@ function ReaderProgram({ apiUrl }) {
                 <option value="">(auto-detect)</option>
                 {ports.map((p) => (
                   <option key={p.port} value={p.port}>
-                    {p.port}{p.likelyReader ? '  (likely reader)' : ''}
+                    {p.port}{p.description ? ` — ${p.description}` : ''}{p.likelyReader ? '  (likely reader)' : ''}
                   </option>
                 ))}
               </select>
